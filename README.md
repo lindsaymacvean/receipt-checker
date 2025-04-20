@@ -81,5 +81,12 @@ Outputs with exact URLs are available in the CloudFormation stack outputs.
 
 ## Cleanup
 ```bash
+# Manual cleanup via AWS CLI (uses default profile/region)
 aws cloudformation delete-stack --stack-name MetaWebhookStack
+```
+
+Alternatively, you can use the included `teardown.sh` script to target a specific AWS CLI profile:
+
+```bash
+./teardown.sh <aws-profile>
 ```
