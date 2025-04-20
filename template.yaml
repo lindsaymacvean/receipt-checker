@@ -1,0 +1,139 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: MetaWebhookHandler Lambda + API Gateway with dev/prod stages and CORS
+
+Resources:
+
+  MetaWebhookExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: LambdaCloudWatchLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+
+  MetaWebhookHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: MetaWebhookHandler
+      Runtime: nodejs18.x
+      Handler: index.handler
+      Role: !GetAtt MetaWebhookExecutionRole.Arn
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            console.log('Request body:', event.body);
+            return {
+              statusCode: 200,
+              headers: {
+                'Access-Control-Allow-Origin': '*'
+              },
+              body: JSON.stringify({ message: 'OK' })
+            };
+          };
+
+  MetaWebhookAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: MetaWebhookAPI
+
+  MetaWebhookResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref MetaWebhookAPI
+      ParentId: !GetAtt MetaWebhookAPI.RootResourceId
+      PathPart: meta_webhook
+
+  MetaWebhookPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref MetaWebhookAPI
+      ResourceId: !Ref MetaWebhookResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub >-
+          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MetaWebhookHandler.Arn}/invocations
+
+  MetaWebhookOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref MetaWebhookAPI
+      ResourceId: !Ref MetaWebhookResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: '{"statusCode":200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref MetaWebhookHandler
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub
+        - arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/POST/meta_webhook
+        - { ApiId: !Ref MetaWebhookAPI }
+
+  MetaWebhookDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - MetaWebhookPostMethod
+      - MetaWebhookOptionsMethod
+    Properties:
+      RestApiId: !Ref MetaWebhookAPI
+
+  DevStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: dev
+      RestApiId: !Ref MetaWebhookAPI
+      DeploymentId: !Ref MetaWebhookDeployment
+
+  ProdStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: prod
+      RestApiId: !Ref MetaWebhookAPI
+      DeploymentId: !Ref MetaWebhookDeployment
+
+Outputs:
+
+  DevEndpoint:
+    Description: "Dev stage endpoint for POST /meta_webhook"
+    Value: !Sub "https://${MetaWebhookAPI}.execute-api.${AWS::Region}.amazonaws.com/dev/meta_webhook"
+
+  ProdEndpoint:
+    Description: "Prod stage endpoint for POST /meta_webhook"
+    Value: !Sub "https://${MetaWebhookAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/meta_webhook"
