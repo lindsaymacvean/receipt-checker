@@ -10,6 +10,10 @@ STACK_NAME="MetaWebhookStack"
 # CloudFormation template file to deploy
 TEMPLATE_FILE="template.yaml"
 
+echo "AWS Caller Identity:"
+aws sts get-caller-identity || true
+echo "AWS Region: $(aws configure get region || echo 'unknown')"
+echo
 echo "Deploying stack '$STACK_NAME' with template '$TEMPLATE_FILE'..."
 
 aws cloudformation deploy \
