@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: MetaWebhookHandler Lambda + API Gateway with preprod and prod stages and CORS
-
+Description: MetaWebhookHandler Lambda + API Gateway with preprod and prod stages
+  and CORS
 Parameters:
   CustomDomainName:
     Type: String
@@ -16,112 +16,119 @@ Parameters:
     Description: Token to verify GET requests from Meta
   CreateCustomDomain:
     Type: String
-    AllowedValues: ["true", "false"]
-    Default: "true"
+    AllowedValues:
+    - 'true'
+    - 'false'
+    Default: 'true'
     Description: Whether to create the custom domain in API Gateway
-
 Globals:
   Function:
     Runtime: nodejs18.x
     Timeout: 10
     MemorySize: 128
-
 Conditions:
-  CreateCustomDomain: !Equals [!Ref CreateCustomDomain, "true"]
-  # DomainName and BasePathMapping resources will only be created if this is true
-
+  CreateCustomDomain:
+    Fn::Equals:
+    - Ref: CreateCustomDomain
+    - 'true'
 Resources:
-
   PreprodApi:
     Type: AWS::Serverless::Api
     Properties:
       Name: MetaWebhookApiPreprod
       StageName: preprod
       Cors:
-        AllowOrigin: "'*'"
-        AllowMethods: "'OPTIONS,GET,POST'"
-        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
-
+        AllowOrigin: '''*'''
+        AllowMethods: '''OPTIONS,GET,POST'''
+        AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key'''
   ProdApi:
     Type: AWS::Serverless::Api
     Properties:
       Name: MetaWebhookApiProd
       StageName: prod
       Cors:
-        AllowOrigin: "'*'"
-        AllowMethods: "'OPTIONS,GET,POST'"
-        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
-      # Domain mapping configured via separate resources based on CreateCustomDomain parameter
-      # The Domain property is omitted here to allow conditional creation
-
-  # Conditional custom domain resources
+        AllowOrigin: '''*'''
+        AllowMethods: '''OPTIONS,GET,POST'''
+        AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key'''
   CustomDomainNameResource:
     Condition: CreateCustomDomain
     Type: AWS::ApiGateway::DomainName
     Properties:
-      DomainName: !Ref CustomDomainName
-      RegionalCertificateArn: !Ref CertificateArn
+      DomainName:
+        Ref: CustomDomainName
+      RegionalCertificateArn:
+        Ref: CertificateArn
       EndpointConfiguration:
         Types:
-          - REGIONAL
-
+        - REGIONAL
   CustomBasePathMapping:
     Condition: CreateCustomDomain
     Type: AWS::ApiGateway::BasePathMapping
     Properties:
-      DomainName: !Ref CustomDomainName
-      RestApiId: !Ref ProdApi
+      DomainName:
+        Ref: CustomDomainName
+      RestApiId:
+        Ref: ProdApi
       Stage: prod
       BasePath: ''
-
   MetaWebhookGetHandler:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambdas/
+      CodeUri: MetaWebhookGetHandler
       Handler: metaWebhookGetHandler.handler
       Events:
         PreprodGet:
           Type: Api
           Properties:
-            RestApiId: !Ref PreprodApi
+            RestApiId:
+              Ref: PreprodApi
             Path: /meta_webhook
             Method: GET
         ProdGet:
           Type: Api
           Properties:
-            RestApiId: !Ref ProdApi
+            RestApiId:
+              Ref: ProdApi
             Path: /meta_webhook
             Method: GET
       Environment:
         Variables:
-          VERIFY_TOKEN: !Ref VerifyToken
-
+          VERIFY_TOKEN:
+            Ref: VerifyToken
+    Metadata:
+      SamResourceId: MetaWebhookGetHandler
   MetaWebhookPostHandler:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambdas/
+      CodeUri: MetaWebhookPostHandler
       Handler: metaWebhookHandler.handler
       Events:
         PreprodPost:
           Type: Api
           Properties:
-            RestApiId: !Ref PreprodApi
+            RestApiId:
+              Ref: PreprodApi
             Path: /meta_webhook
             Method: POST
         ProdPost:
           Type: Api
           Properties:
-            RestApiId: !Ref ProdApi
+            RestApiId:
+              Ref: ProdApi
             Path: /meta_webhook
             Method: POST
-
+    Metadata:
+      SamResourceId: MetaWebhookPostHandler
 Outputs:
   PreprodEndpoint:
-    Description: "Preprod GET/POST endpoint for /meta_webhook"
-    Value: !Sub "https://${PreprodApi}.execute-api.${AWS::Region}.amazonaws.com/preprod/meta_webhook"
+    Description: Preprod GET/POST endpoint for /meta_webhook
+    Value:
+      Fn::Sub: https://${PreprodApi}.execute-api.${AWS::Region}.amazonaws.com/preprod/meta_webhook
   ProdEndpoint:
-    Description: "Prod GET/POST endpoint for /meta_webhook"
-    Value: !Sub "https://${ProdApi}.execute-api.${AWS::Region}.amazonaws.com/prod/meta_webhook"
+    Description: Prod GET/POST endpoint for /meta_webhook
+    Value:
+      Fn::Sub: https://${ProdApi}.execute-api.${AWS::Region}.amazonaws.com/prod/meta_webhook
   CustomDomainName:
-    Description: "Custom domain for Prod API"
-    Value: !Ref CustomDomainName
+    Description: Custom domain for Prod API
+    Value:
+      Ref: CustomDomainName

@@ -1,64 +1,83 @@
-# Project Context for AI Assistance
+# 📘 Project Context: Receipt Intelligence via WhatsApp
 
-This document provides essential high-level context for the MetaWebhook project. It should be referenced to quickly onboard future AI assistants or developers.
+This file provides high-level context for the architecture and business purpose of this project. It is designed to guide AI tooling and new developers in understanding what the system is for, how it is structured, and how its parts relate.
 
-## 1. Purpose
-- Receive Meta webhook POST requests at `/meta_webhook`.
-- Log incoming JSON payloads to CloudWatch Logs.
-- Respond with HTTP 200 and appropriate CORS headers.
-
-## 2. Code Structure
-- `lambdas/metaWebhookHandler.js`: Node.js 18.x handler that logs `event.body` and returns `{ message: 'OK' }` with `'Access-Control-Allow-Origin': '*'`.
-
-### Infrastructure as Code
-- `template.yaml` (CloudFormation):
-  - IAM Role for Lambda logging.
-  - Lambda function definition.
-  - API Gateway REST API (`MetaWebhookAPI`), resource `/meta_webhook`, POST & OPTIONS methods, dev/prod stages.
-  - Optional custom domain (parameters: `CustomDomainName`, `CertificateArn`), DomainName & BasePathMapping.
-  - Outputs include API endpoints and DNS info (`DomainNameConfiguration`, `HostedZoneId`).
-
-- `template-sam.yaml` (AWS SAM):
-  - `AWS::Serverless::Function` for local testing with `sam local start-api`.
-  - Defines API event on POST `/meta_webhook`.
-
-### Deployment Scripts
-- `deploy.sh`: Deploy `template.yaml` via AWS CLI, shows caller identity and region.
-- `teardown.sh`: Delete the CloudFormation stack for a given AWS CLI profile.
-
-### Events
-- `events/event.json`: Sample payload for `sam local invoke`.
-
-## 3. Local Testing (SAM)
-```bash
-sam local start-api -t template-sam.yaml
-curl -X POST http://127.0.0.1:3000/meta_webhook \
-     -H 'Content-Type: application/json' \
-     -d '{"hello":"world"}'
-sam local invoke MetaWebhookHandler -t template-sam.yaml -e events/event.json
-```
-
-## 4. Deployment
-- Default: `./deploy.sh`
-- Manual:
-  ```bash
-  aws cloudformation deploy \
-    --template-file template.yaml \
-    --stack-name MetaWebhookStack \
-    --capabilities CAPABILITY_IAM \
-    --parameter-overrides \
-      CustomDomainName=<your-domain> \
-      CertificateArn=<your-acm-cert-arn>
-  ```
-
-## 5. Teardown
-- Default: `aws cloudformation delete-stack --stack-name MetaWebhookStack`
-- Specific profile: `./teardown.sh <aws-profile>`
-
-## 6. Notes
-- All resources are managed by `MetaWebhookStack`.
-- CORS handled via OPTIONS method on API Gateway.
-- Lambda code inline in CFN but stored in `lambdas/` for modularity.
-  
 ---
-*Last updated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")*
+
+## 🧠 Business Purpose
+
+This project enables users to send images of receipts via **WhatsApp** to a designated business number. The goal is to turn messy, offline receipt data into structured, queryable insight.
+
+- Users add our WhatsApp Business number to a **chat** (1:1 only, due to WhatsApp API constraints).
+- Users then send **images of receipts** (1 or many).
+- The app processes those images using **Azure Form Recognizer** (Document Intelligence).
+- Structured receipt data is stored (currently via AWS DynamoDB).
+- Users can later **ask questions in WhatsApp** ("How much did I spend on food last week?"), which are:
+  - Interpreted via **OpenAI’s GPT API**
+  - Answered using the previously stored receipt data
+
+---
+
+## 🏛️ Architectural Overview
+
+This is a serverless, event-driven application hosted on AWS.
+
+### Inbound Flow:
+1. **WhatsApp Cloud API** delivers a message webhook to our API Gateway endpoint (`/meta_webhook`)
+2. **API Gateway** invokes a **Lambda function** (`MetaWebhookHandler`)
+3. **Lambda**:
+   - Handles WhatsApp webhook verification (`GET`)
+   - Logs incoming messages (`POST`)
+   - Extracts media IDs for receipts
+   - Optionally fetches media & stores metadata
+
+### Outbound Flow (Planned):
+- Another Lambda (or the same one) will:
+  - Extract receipt data via **Azure Document Intelligence**
+  - Store it in **DynamoDB**
+  - Parse natural language queries via **OpenAI GPT**
+  - Return analysis to the user via WhatsApp reply API
+
+---
+
+## 🧱 Key Components
+
+### Lambda Handlers
+- `lambdas/metaWebhookHandler.js`:  
+  Receives and logs messages from Meta; future logic will extract image media.
+
+### Infrastructure
+- `template.yaml`:  
+  CloudFormation script defining:
+  - Lambda function
+  - IAM roles
+  - API Gateway (`/meta_webhook`)
+  - Domain mapping for custom domain (optional)
+  - Dev and prod stages
+  - Optional CORS config
+
+- `template-sam.yaml`:  
+  SAM template for local testing via `sam local start-api`.
+
+### Supporting Scripts
+- `deploy.sh`, `teardown.sh`: CLI scripts for deploying and deleting stacks.
+- `events/event.json`: Test payload for local simulation.
+
+---
+
+## 🌐 Domains
+- Custom domain configured: `receipt-api.ukbennettinnovations.com`
+- Supports both `/dev/meta_webhook` and `/prod/meta_webhook` paths
+- Certificates managed via ACM and Lightsail DNS
+
+---
+
+## 🧩 Next Planned Features
+- Downloading WhatsApp media using Graph API
+- Sending images to Azure for OCR
+- Storing structured results
+- Chat-based analysis using OpenAI
+
+---
+
+_Last updated: 2025-04-20_
