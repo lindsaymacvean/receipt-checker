@@ -1,0 +1,27 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: SAM template for local testing of MetaWebhookHandler
+
+Globals:
+  Function:
+    Timeout: 10
+
+Resources:
+  MetaWebhookHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: MetaWebhookHandler
+      Runtime: nodejs18.x
+      Handler: metaWebhookHandler.handler
+      CodeUri: lambdas/
+      Events:
+        MetaWebhookAPI:
+          Type: Api
+          Properties:
+            Path: /meta_webhook
+            Method: post
+
+Outputs:
+  MetaWebhookHandlerARN:
+    Description: ARN of MetaWebhookHandler function
+    Value: !GetAtt MetaWebhookHandler.Arn
