@@ -1,6 +1,16 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: MetaWebhookHandler Lambda + API Gateway with dev/prod stages and CORS
 
+Parameters:
+  CustomDomainName:
+    Type: String
+    Description: Custom domain to map to the API (e.g. receipt-api.ukbennettinnovations.com)
+    Default: receipt-api.ukbennettinnovations.com
+
+  CertificateArn:
+    Type: String
+    Description: ARN of the ACM certificate for the custom domain (must be in same region)
+
 Resources:
 
   MetaWebhookExecutionRole:
@@ -128,6 +138,23 @@ Resources:
       RestApiId: !Ref MetaWebhookAPI
       DeploymentId: !Ref MetaWebhookDeployment
 
+  ApiGatewayDomainName:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: !Ref CustomDomainName
+      RegionalCertificateArn: !Ref CertificateArn
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  ApiGatewayBasePathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      DomainName: !Ref ApiGatewayDomainName
+      RestApiId: !Ref MetaWebhookAPI
+      Stage: prod
+      BasePath: ''
+
 Outputs:
 
   DevEndpoint:
@@ -137,3 +164,15 @@ Outputs:
   ProdEndpoint:
     Description: "Prod stage endpoint for POST /meta_webhook"
     Value: !Sub "https://${MetaWebhookAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/meta_webhook"
+
+  CustomDomain:
+    Description: "Custom domain name for the API"
+    Value: !Ref CustomDomainName
+
+  DomainNameConfiguration:
+    Description: "API Gateway host name to point your DNS CNAME to"
+    Value: !GetAtt ApiGatewayDomainName.RegionalDomainName
+
+  HostedZoneId:
+    Description: "Route53 HostedZoneId for CNAME record"
+    Value: !GetAtt ApiGatewayDomainName.RegionalHostedZoneId
