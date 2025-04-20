@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: MetaWebhookHandler Lambda + API Gateway with dev/prod stages and CORS
+Description: MetaWebhookHandler Lambda + API Gateway with preprod/prod stages and CORS
 
 Parameters:
   CustomDomainName:
@@ -124,10 +124,10 @@ Resources:
     Properties:
       RestApiId: !Ref MetaWebhookAPI
 
-  DevStage:
+  PreprodStage:
     Type: AWS::ApiGateway::Stage
     Properties:
-      StageName: dev
+      StageName: preprod
       RestApiId: !Ref MetaWebhookAPI
       DeploymentId: !Ref MetaWebhookDeployment
 
@@ -157,9 +157,9 @@ Resources:
 
 Outputs:
 
-  DevEndpoint:
-    Description: "Dev stage endpoint for POST /meta_webhook"
-    Value: !Sub "https://${MetaWebhookAPI}.execute-api.${AWS::Region}.amazonaws.com/dev/meta_webhook"
+  PreprodEndpoint:
+    Description: "Preprod stage endpoint for POST /meta_webhook"
+    Value: !Sub "https://${MetaWebhookAPI}.execute-api.${AWS::Region}.amazonaws.com/preprod/meta_webhook"
 
   ProdEndpoint:
     Description: "Prod stage endpoint for POST /meta_webhook"

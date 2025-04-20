@@ -1,24 +1,32 @@
 #!/usr/bin/env bash
 #
-# deploy.sh - Deploy the CloudFormation stack using AWS CLI
+# deploy.sh - Deploy the SAM application using the AWS SAM CLI
 #
 set -euo pipefail
 
-# Name of the CloudFormation stack
+# Stack and template settings
 STACK_NAME="MetaWebhookStack"
-
-# CloudFormation template file to deploy
 TEMPLATE_FILE="template.yaml"
+S3_BUCKET="meta-webhook-deployments"   # You can change this to your actual bucket name
+REGION=$(aws configure get region || echo "us-east-1")
+PROFILE="default"                      # Optional: change if you use a named profile
 
-echo "AWS Caller Identity:"
+echo "🔐 AWS Identity:"
 aws sts get-caller-identity || true
-echo "AWS Region: $(aws configure get region || echo 'unknown')"
+echo "🌍 AWS Region: $REGION"
 echo
-echo "Deploying stack '$STACK_NAME' with template '$TEMPLATE_FILE'..."
+echo "📦 Building SAM application..."
+sam build --template "$TEMPLATE_FILE"
 
-aws cloudformation deploy \
-  --template-file "$TEMPLATE_FILE" \
+echo "🚀 Deploying stack '$STACK_NAME' to region '$REGION'..."
+sam deploy \
+  --template-file .aws-sam/build/template.yaml \
   --stack-name "$STACK_NAME" \
-  --capabilities CAPABILITY_IAM
+  --s3-bucket "$S3_BUCKET" \
+  --capabilities CAPABILITY_IAM \
+  --region "$REGION" \
+  --profile "$PROFILE" \
+  --confirm-changeset \
+  --no-fail-on-empty-changeset
 
-echo "Deployment complete."
+echo "✅ Deployment complete."
