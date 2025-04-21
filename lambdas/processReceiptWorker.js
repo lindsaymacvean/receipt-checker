@@ -17,24 +17,23 @@ exports.handler = async (event) => {
       // Get the user's WhatsApp ID (wa_id) from the message
       const waId = messageBody.entry?.[0]?.changes?.[0]?.value?.contacts?.[0]?.wa_id;
       if (!waId) throw new Error('Missing wa_id in message');
+      const messageId = messageBody.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id;
+      if (!messageId) throw new Error('Missing messageId in message');
       const messageTableSK = `MESSAGE#${new Date().toISOString()}#${messageId}`;
 
       // Step 1: Log the received message into MessagesTable
-      const messageId = messageBody.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id;
-      if (messageId) {
-        await ddbClient.send(
-          new PutItemCommand({
-            TableName: 'MessagesTable',
-            Item: {
-              pk: { S: `USER#${waId}` },
-              sk: { S: messageTableSK },
-              status: { S: 'RECEIVED' },
-              rawMessage: { S: JSON.stringify(messageBody) }
-            }
-          })
-        );
-        console.log('✅ Logged message into MessagesTable');
-      }
+      await ddbClient.send(
+        new PutItemCommand({
+          TableName: 'MessagesTable',
+          Item: {
+            pk: { S: `USER#${waId}` },
+            sk: { S: messageTableSK },
+            status: { S: 'RECEIVED' },
+            rawMessage: { S: JSON.stringify(messageBody) }
+          }
+        })
+      );
+      console.log('✅ Logged message into MessagesTable');
 
       // Step 2a: Extract image ID from messageBody
       const imageId = messageBody.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.image?.id;
@@ -141,20 +140,19 @@ exports.handler = async (event) => {
       console.log('✅ Saved structured receipt to ReceiptsTable');
 
       // Step 2g: Optionally link back to MessagesTable
-      if (messageId) {
-        await ddbClient.send(
-          new PutItemCommand({
-            TableName: 'MessagesTable',
-            Item: {
-              pk: { S: `USER#${waId}` },
-              sk: { S: messageTableSK },
-              status: { S: 'OCR_PROCESSED' },
-              receiptRef: { S: `RECEIPT#${imageId}` }
-            }
-          })
-        );
-        console.log('Linked receipt to message in MessagesTable');
-      }
+      await ddbClient.send(
+        new PutItemCommand({
+          TableName: 'MessagesTable',
+          Item: {
+            pk: { S: `USER#${waId}` },
+            sk: { S: messageTableSK },
+            status: { S: 'OCR_PROCESSED' },
+            receiptRef: { S: `RECEIPT#${imageId}` }
+          }
+        })
+      );
+      console.log('Linked receipt to message in MessagesTable');
+    
 
     } catch (err) {
       console.error("❌ Failed to process SQS record", err);
