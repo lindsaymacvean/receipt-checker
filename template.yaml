@@ -112,6 +112,11 @@ Resources:
       MemorySize: 128
       Policies:
         - AWSLambdaBasicExecutionRole
+        - Statement:
+          - Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:ReceiptCheckerSecrets*
       Events:
         ReceiptQueueEvent:
           Type: SQS
