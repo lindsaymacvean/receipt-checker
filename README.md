@@ -110,6 +110,18 @@ If you have configured a custom domain, the URL will be:
 https://<CustomDomainName>/${StageName}/meta_webhook
 ```
 
+## Post-Deployment Configuration
+After deploying the stack, you must populate the system user access token used by the WhatsApp Cloud API. The SAM template creates a Secrets Manager secret named `WhatsAppSystemUserToken`.
+
+To set your system user token, run:
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id WhatsAppSystemUserToken \
+  --secret-string '{"access_token":"<YOUR_SYSTEM_USER_TOKEN>"}'
+```
+
+Alternatively, you can update the `WhatsAppSystemUserToken` secret via the AWS Console under Secrets Manager.
+
 ## Cleanup
 ```bash
 # Manual cleanup via AWS CLI (uses default profile/region)
