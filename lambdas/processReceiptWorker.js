@@ -13,7 +13,7 @@ exports.handler = async (event) => {
     try {
       const messageBody = JSON.parse(record.body);
       console.log("📥 Received SQS message:", JSON.stringify(messageBody, null, 2));
-
+      
       // Step 2a: Extract image ID from messageBody
       const imageId = messageBody.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.image?.id;
       if (!imageId) {
@@ -47,7 +47,14 @@ exports.handler = async (event) => {
       console.log('Media download URL:', downloadUrl);
 
       // Step 2d: Download media content
-      const mediaResp = await fetch(downloadUrl);
+      const mediaResp = await fetch(downloadUrl, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        },
+        redirect: 'follow'
+      });
+      if (!mediaResp.ok) throw new Error(`Failed to download media: ${mediaResp.statusText}`);
       const imageBuffer = await mediaResp.arrayBuffer();
 
       // Step 2e: Send image to Azure OCR (Receipt model)
