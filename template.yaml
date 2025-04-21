@@ -153,6 +153,17 @@ Resources:
         - Key: App
           Value: ReceiptChecker
 
+  # Secrets Manager secret for WhatsApp system user token
+  WhatsAppSystemUserToken:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: WhatsAppSystemUserToken
+      Description: "Stores the system user token used to authenticate calls to the WhatsApp Cloud API"
+      SecretString: '{"access_token":""}'
+      Tags:
+        - Key: App
+          Value: ReceiptChecker
+
 Outputs:
   ApiEndpoint:
     Description: URL of the MetaWebhook API endpoint
