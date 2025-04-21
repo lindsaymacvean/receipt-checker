@@ -92,7 +92,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: MetaWebhookPostHandler
-      Handler: metaWebhookHandler.handler
+      Handler: metaWebhookPostHandler.handler
       Events:
         PostWebhook:
           Type: Api
