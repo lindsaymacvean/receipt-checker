@@ -53,7 +53,7 @@ This is a serverless, event-driven application hosted on AWS.
   - IAM roles
   - API Gateway (`/meta_webhook`)
   - Domain mapping for custom domain (optional)
-  - Dev and prod stages
+  - preprod and prod stages
   - Optional CORS config
 
 - `template-sam.yaml`:  
@@ -67,7 +67,7 @@ This is a serverless, event-driven application hosted on AWS.
 
 ## 🌐 Domains
 - Custom domain configured: `receipt-api.ukbennettinnovations.com`
-- Supports both `/dev/meta_webhook` and `/prod/meta_webhook` paths
+- Supports both `/preprod/meta_webhook` and `/prod/meta_webhook` paths
 - Certificates managed via ACM and Lightsail DNS
 
 ---

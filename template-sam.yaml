@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: MetaWebhookHandler Lambda + API Gateway with dev/prod stages and CORS
+Description: MetaWebhookHandler Lambda + API Gateway with preprod/prod stages and CORS
 
 Parameters:
   CustomDomainName:

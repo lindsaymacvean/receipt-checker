@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Test script for Preprod (dev) endpoint of MetaWebhook API
+# Test script for Preprod endpoint of MetaWebhook API
 set -euo pipefail
 set -x
 

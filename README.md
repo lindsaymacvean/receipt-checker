@@ -9,7 +9,7 @@ This project includes:
 - An API Gateway REST API (`MetaWebhookAPI`) with:
   - POST `/meta_webhook` endpoint integrated with the Lambda.
   - OPTIONS method for CORS preflight (Allow-Origin: `*`).
-- Two deployment stages: `dev` and `prod`, with separate endpoints.
+- Two deployment stages: `preprod` and `prod`, with separate endpoints.
 
 ## Repository Structure
 ```
@@ -74,7 +74,7 @@ aws cloudformation deploy \
 
 ### Endpoints
 After deployment, your endpoints are:
-- Dev stage: `https://<api-id>.execute-api.<region>.amazonaws.com/dev/meta_webhook`
+- PreProd stage: `https://<api-id>.execute-api.<region>.amazonaws.com/preprod/meta_webhook`
 - Prod stage: `https://<api-id>.execute-api.<region>.amazonaws.com/prod/meta_webhook`
 
 Outputs with exact URLs are available in the CloudFormation stack outputs.

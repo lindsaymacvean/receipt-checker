@@ -56,7 +56,8 @@ else
   CREATE_CUSTOM_DOMAIN="true"
 fi
 
-PARAM_OVERRIDES="CreateCustomDomain=$CREATE_CUSTOM_DOMAIN CustomDomainName=$CUSTOM_DOMAIN_NAME CertificateArn=$CERTIFICATE_ARN VerifyToken=$VERIFY_TOKEN"
+STAGE_NAME=${STAGE_NAME:-prod}  # override with env var if needed
+PARAM_OVERRIDES="StageName=$STAGE_NAME CustomDomainName=$CUSTOM_DOMAIN_NAME CertificateArn=$CERTIFICATE_ARN VerifyToken=$VERIFY_TOKEN"
 
 echo "AWS Identity:"
 aws sts get-caller-identity || true
