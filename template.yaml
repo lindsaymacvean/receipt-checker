@@ -101,7 +101,6 @@ Resources:
             Path: /meta_webhook
             Method: POST
   
-  # Worker function for asynchronous receipt processing
   ProcessReceiptWorker:
     Type: AWS::Serverless::Function
     Properties:
@@ -112,11 +111,14 @@ Resources:
       MemorySize: 128
       Policies:
         - AWSLambdaBasicExecutionRole
-        - Statement:
-          - Effect: Allow
-            Action:
-              - secretsmanager:GetSecretValue
-            Resource: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:ReceiptCheckerSecrets*
+        - PolicyName: SecretsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:ReceiptCheckerSecrets*
       Events:
         ReceiptQueueEvent:
           Type: SQS
