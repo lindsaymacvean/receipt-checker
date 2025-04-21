@@ -21,8 +21,9 @@ exports.handler = async (event) => {
           new PutItemCommand({
             TableName: 'MessagesTable',
             Item: {
-              pk: { S: `MESSAGE#${messageId}` },
-              sk: { S: 'RECEIVED' },
+              pk: { S: `USER#${waId}` },
+              sk: { S: `MESSAGE#${new Date().toISOString()}#${messageId}` },
+              status: { S: 'RECEIVED' },
               rawMessage: { S: JSON.stringify(messageBody) }
             }
           })
@@ -143,8 +144,9 @@ exports.handler = async (event) => {
           new PutItemCommand({
             TableName: 'MessagesTable',
             Item: {
-              pk: { S: `MESSAGE#${messageId}` },
-              sk: { S: 'OCR_PROCESSED' },
+              pk: { S: `USER#${waId}` },
+              sk: { S: `MESSAGE#${new Date().toISOString()}#${messageId}` },
+              status: { S: 'OCR_PROCESSED' },
               receiptRef: { S: `RECEIPT#${imageId}` }
             }
           })
