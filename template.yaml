@@ -204,3 +204,7 @@ Outputs:
   CustomDomainName:
     Description: "Custom domain for the API"
     Value: !Ref CustomDomainName
+
+  ReceiptProcessingQueueUrl:
+    Description: URL of the ReceiptProcessingQueue SQS queue
+    Value: !Ref ReceiptProcessingQueue
