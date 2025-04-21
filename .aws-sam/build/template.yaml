@@ -1,12 +1,18 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: MetaWebhookHandler Lambda + API Gateway with preprod and prod stages
-  and CORS
+Description: MetaWebhookHandler Lambda + single API Gateway with CORS and stage control
 Parameters:
+  StageName:
+    Type: String
+    Default: prod
+    AllowedValues:
+    - preprod
+    - prod
+    Description: API Gateway stage name to deploy (preprod or prod)
   CustomDomainName:
     Type: String
     Default: receipt-api.ukbennettinnovations.com
-    Description: Custom domain for the Prod API
+    Description: Custom domain for the API
   CertificateArn:
     Type: String
     Description: ACM certificate ARN for the custom domain
@@ -32,20 +38,12 @@ Conditions:
     - Ref: CreateCustomDomain
     - 'true'
 Resources:
-  PreprodApi:
+  MetaWebhookApi:
     Type: AWS::Serverless::Api
     Properties:
-      Name: MetaWebhookApiPreprod
-      StageName: preprod
-      Cors:
-        AllowOrigin: '''*'''
-        AllowMethods: '''OPTIONS,GET,POST'''
-        AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key'''
-  ProdApi:
-    Type: AWS::Serverless::Api
-    Properties:
-      Name: MetaWebhookApiProd
-      StageName: prod
+      Name: MetaWebhookApi
+      StageName:
+        Ref: StageName
       Cors:
         AllowOrigin: '''*'''
         AllowMethods: '''OPTIONS,GET,POST'''
@@ -68,7 +66,7 @@ Resources:
       DomainName:
         Ref: CustomDomainName
       RestApiId:
-        Ref: ProdApi
+        Ref: MetaWebhookApi
       Stage: prod
       BasePath: ''
   MetaWebhookGetHandler:
@@ -77,18 +75,11 @@ Resources:
       CodeUri: MetaWebhookGetHandler
       Handler: metaWebhookGetHandler.handler
       Events:
-        PreprodGet:
+        GetWebhook:
           Type: Api
           Properties:
             RestApiId:
-              Ref: PreprodApi
-            Path: /meta_webhook
-            Method: GET
-        ProdGet:
-          Type: Api
-          Properties:
-            RestApiId:
-              Ref: ProdApi
+              Ref: MetaWebhookApi
             Path: /meta_webhook
             Method: GET
       Environment:
@@ -103,32 +94,21 @@ Resources:
       CodeUri: MetaWebhookPostHandler
       Handler: metaWebhookHandler.handler
       Events:
-        PreprodPost:
+        PostWebhook:
           Type: Api
           Properties:
             RestApiId:
-              Ref: PreprodApi
-            Path: /meta_webhook
-            Method: POST
-        ProdPost:
-          Type: Api
-          Properties:
-            RestApiId:
-              Ref: ProdApi
+              Ref: MetaWebhookApi
             Path: /meta_webhook
             Method: POST
     Metadata:
       SamResourceId: MetaWebhookPostHandler
 Outputs:
-  PreprodEndpoint:
-    Description: Preprod GET/POST endpoint for /meta_webhook
+  ApiEndpoint:
+    Description: URL of the MetaWebhook API endpoint
     Value:
-      Fn::Sub: https://${PreprodApi}.execute-api.${AWS::Region}.amazonaws.com/preprod/meta_webhook
-  ProdEndpoint:
-    Description: Prod GET/POST endpoint for /meta_webhook
-    Value:
-      Fn::Sub: https://${ProdApi}.execute-api.${AWS::Region}.amazonaws.com/prod/meta_webhook
+      Fn::Sub: https://${MetaWebhookApi}.execute-api.${AWS::Region}.amazonaws.com/${StageName}/meta_webhook
   CustomDomainName:
-    Description: Custom domain for Prod API
+    Description: Custom domain for the API
     Value:
       Ref: CustomDomainName

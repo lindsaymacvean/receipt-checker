@@ -23,8 +23,8 @@ This project enables users to send images of receipts via **WhatsApp** to a desi
 This is a serverless, event-driven application hosted on AWS.
 
 ### Inbound Flow:
-1. **WhatsApp Cloud API** delivers a message webhook to our API Gateway endpoint (`/meta_webhook`)
-2. **API Gateway** invokes a **Lambda function** (`MetaWebhookHandler`)
+1. **WhatsApp Cloud API** delivers a message webhook to our API Gateway endpoint (`/{StageName}/meta_webhook`)
+2. **AWS::Serverless::Api** (`MetaWebhookApi`) invokes **Lambda functions** (`MetaWebhookGetHandler` for GET and `MetaWebhookPostHandler` for POST)
 3. **Lambda**:
    - Handles WhatsApp webhook verification (`GET`)
    - Logs incoming messages (`POST`)
@@ -43,31 +43,31 @@ This is a serverless, event-driven application hosted on AWS.
 ## 🧱 Key Components
 
 ### Lambda Handlers
-- `lambdas/metaWebhookHandler.js`:  
-  Receives and logs messages from Meta; future logic will extract image media.
+- `lambdas/metaWebhookGetHandler.js`: handles the GET subscription verification handshake
+- `lambdas/metaWebhookHandler.js`: handles incoming POST webhooks and logs payloads
 
 ### Infrastructure
+### Infrastructure
 - `template.yaml`:  
-  CloudFormation script defining:
-  - Lambda function
-  - IAM roles
-  - API Gateway (`/meta_webhook`)
-  - Domain mapping for custom domain (optional)
-  - preprod and prod stages
-  - Optional CORS config
+  AWS SAM template defining:
+  - Two Lambda functions (GET & POST handlers)
+  - Single `AWS::Serverless::Api` (**MetaWebhookApi**) with `StageName` parameter for preprod or prod paths
+  - CORS enabled for OPTIONS, GET, POST
+  - Custom domain mapping via parameters
 
 - `template-sam.yaml`:  
   SAM template for local testing via `sam local start-api`.
 
 ### Supporting Scripts
 - `deploy.sh`, `teardown.sh`: CLI scripts for deploying and deleting stacks.
+- `test/test_preprod.sh`, `test/test_prod.sh`: scripts to verify preprod and prod endpoints
 - `events/event.json`: Test payload for local simulation.
 
 ---
 
 ## 🌐 Domains
 - Custom domain configured: `receipt-api.ukbennettinnovations.com`
-- Supports both `/preprod/meta_webhook` and `/prod/meta_webhook` paths
+- Supports both `/preprod/meta_webhook` and `/prod/meta_webhook` paths via the `StageName` parameter
 - Certificates managed via ACM and Lightsail DNS
 
 ---
@@ -80,4 +80,4 @@ This is a serverless, event-driven application hosted on AWS.
 
 ---
 
-_Last updated: 2025-04-20_
+_Last updated: 2025-04-21_

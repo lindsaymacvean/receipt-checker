@@ -3,13 +3,13 @@
 set -euo pipefail
 set -x
 
-## Production endpoint testing against custom domain
+### Test script for Prod endpoint via custom domain ###
 # Custom domain for Prod endpoint (override with env var if needed)
 CUSTOM_DOMAIN_NAME=${CUSTOM_DOMAIN_NAME:-receipt-api.ukbennettinnovations.com}
 # Verification token (must match deployed VerifyToken)
 VERIFY_TOKEN=${VERIFY_TOKEN:-my_super_secret_token_123}
 
-# Construct the Prod endpoint URL using custom domain (BasePathMapping uses root path)
+# Construct the Prod endpoint URL using the custom domain and stage
 ENDPOINT="https://${CUSTOM_DOMAIN_NAME}/meta_webhook"
 
 echo "Testing Prod endpoint via custom domain: $ENDPOINT"

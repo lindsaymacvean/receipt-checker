@@ -4,22 +4,24 @@ Simple AWS Lambda + API Gateway setup for handling Meta webhooks with CORS suppo
 
 ## Overview
 
-This project includes:
+- This project includes:
 - A Node.js 18.x Lambda function (`MetaWebhookHandler`) that logs incoming request bodies to CloudWatch Logs and returns a simple JSON response.
-- An API Gateway REST API (`MetaWebhookAPI`) with:
+- An API Gateway REST API (`MetaWebhookApi`) with:
   - POST `/meta_webhook` endpoint integrated with the Lambda.
   - OPTIONS method for CORS preflight (Allow-Origin: `*`).
-- Two deployment stages: `preprod` and `prod`, with separate endpoints.
+- A single SAM API Gateway deployed with a configurable `StageName` (default `prod`), allowing preprod or prod stages per deployment.
 
 ## Repository Structure
 ```
 lambdas/metaWebhookHandler.js    # Lambda handler code
-template.yaml                    # CloudFormation template for production deployments
+template.yaml                    # AWS SAM template for prod/preprod deployments with StageName parameter
 template-sam.yaml                # AWS SAM template for local testing
 events/event.json                # Sample event payload for `sam local invoke`
-deploy.sh                        # Bash script to deploy `template.yaml`
+deploy.sh                        # Bash script to build & deploy with StageName, domain, token parameters
+test/test_preprod.sh             # Script to test preprod (StageName=preprod) endpoint
+test/test_prod.sh                # Script to test prod (StageName=prod or custom domain) endpoint
 README.md                        # Project overview and instructions
-```
+``` 
 
 ## Prerequisites
 - AWS CLI configured with default credentials/region
@@ -58,26 +60,55 @@ README.md                        # Project overview and instructions
 
 ## Deployment
 ### Using the helper script
-Run:
+By default, `deploy.sh` deploys the stack with `StageName=prod`. To deploy a different stage (e.g., `preprod`), set the `STAGE_NAME` environment variable.
 ```bash
+# For prod (default):
 ./deploy.sh
+
+# For preprod stage:
+STAGE_NAME=preprod ./deploy.sh
 ```
 This deploys `template.yaml` as the `MetaWebhookStack` CloudFormation stack, including IAM capabilities.
 
 ### Manual deployment
+You can also deploy manually using the AWS SAM CLI. Specify the `StageName` parameter to choose the stage.
 ```bash
-aws cloudformation deploy \
-  --template-file template.yaml \
+# Deploy prod (default)
+sam build --template template.yaml
+sam deploy \
+  --template-file .aws-sam/build/template.yaml \
   --stack-name MetaWebhookStack \
-  --capabilities CAPABILITY_IAM
+  --capabilities CAPABILITY_IAM \
+  --parameter-overrides StageName=prod
+
+# Deploy preprod
+sam build --template template.yaml
+sam deploy \
+  --template-file .aws-sam/build/template.yaml \
+  --stack-name MetaWebhookStack-Preprod \
+  --capabilities CAPABILITY_IAM \
+  --parameter-overrides StageName=preprod
 ```
 
 ### Endpoints
-After deployment, your endpoints are:
-- PreProd stage: `https://<api-id>.execute-api.<region>.amazonaws.com/preprod/meta_webhook`
-- Prod stage: `https://<api-id>.execute-api.<region>.amazonaws.com/prod/meta_webhook`
+## Testing
+You can use the included scripts to verify your deployment:
+```bash
+# Preprod tests (requires StageName=preprod deployment)
+bash test/test_preprod.sh
 
-Outputs with exact URLs are available in the CloudFormation stack outputs.
+# Prod tests (uses custom domain)
+bash test/test_prod.sh
+```
+After deployment, use the CloudFormation `ApiEndpoint` output to find your base URL:
+```
+ApiEndpoint: https://<api-id>.execute-api.<region>.amazonaws.com/${StageName}/meta_webhook
+CustomDomainName: <your custom domain>
+``` 
+If you have configured a custom domain, the URL will be:
+```
+https://<CustomDomainName>/${StageName}/meta_webhook
+```
 
 ## Cleanup
 ```bash
@@ -90,3 +121,8 @@ Alternatively, you can use the included `teardown.sh` script to target a specifi
 ```bash
 ./teardown.sh <aws-profile>
 ```
+
+## FAQs
+
+If struggling to register a number on whatsapp business platform see here
+[https://stackoverflow.com/questions/78348741/the-account-does-not-exist-in-the-cloud-api-whatsapp-business-api-problem-wi](https://stackoverflow.com/questions/78348741/the-account-does-not-exist-in-the-cloud-api-whatsapp-business-api-problem-wi)

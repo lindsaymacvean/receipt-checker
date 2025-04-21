@@ -3,15 +3,16 @@
 set -euo pipefail
 set -x
 
-# CloudFormation stack name (override with env var if needed)
+### Test script for Preprod endpoint ###
+# Use CFN ApiEndpoint output (should be deployed with StageName=preprod)
 STACK_NAME=${STACK_NAME:-MetaWebhookStack}
 # Verification token (must match deployed VerifyToken)
 VERIFY_TOKEN=${VERIFY_TOKEN:-my_super_secret_token_123}
 
-# Fetch the Preprod endpoint URL from CloudFormation outputs
+# Fetch the ApiEndpoint output from CloudFormation
 ENDPOINT=$(aws cloudformation describe-stacks \
   --stack-name "$STACK_NAME" \
-  --query "Stacks[0].Outputs[?OutputKey=='PreprodEndpoint'].OutputValue" \
+  --query "Stacks[0].Outputs[?OutputKey=='ApiEndpoint'].OutputValue" \
   --output text)
 
 echo "Testing Preprod endpoint: $ENDPOINT"
