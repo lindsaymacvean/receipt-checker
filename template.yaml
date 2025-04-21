@@ -97,6 +97,27 @@ Resources:
             RestApiId: !Ref MetaWebhookApi
             Path: /meta_webhook
             Method: POST
+  
+  # Worker function for asynchronous receipt processing
+  ProcessReceiptWorker:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/
+      Handler: processReceiptWorker.handler
+      Runtime: nodejs18.x
+      Timeout: 30
+      MemorySize: 128
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        ReceiptQueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ReceiptProcessingQueue.Arn
+            BatchSize: 10
+      Tags:
+        - Key: App
+          Value: ReceiptChecker
 
   ReceiptProcessingQueue:
     Type: AWS::SQS::Queue
