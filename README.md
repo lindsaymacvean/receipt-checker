@@ -119,7 +119,7 @@ aws secretsmanager put-secret-value \
   --secret-id ReceiptCheckerSecrets \
   --secret-string '{
           "access_token": "YOUR_WA_TOKEN",
-          "ocr_endpoint": "https://xxx.cognitiveservices.azure.com",
+          "ocr_endpoint": "https://<app-name>.cognitiveservices.azure.com/formrecognizer/documentModels/prebuilt-receipt:analyze?api-version=2023-07-31",
           "ocr_key": "abc123secret"
         }'
 ```
