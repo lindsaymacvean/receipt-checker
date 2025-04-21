@@ -14,6 +14,11 @@ exports.handler = async (event) => {
       const messageBody = JSON.parse(record.body);
       console.log("📥 Received SQS message:", JSON.stringify(messageBody, null, 2));
 
+      // Get the user's WhatsApp ID (wa_id) from the message
+      const waId = messageBody.entry?.[0]?.changes?.[0]?.value?.contacts?.[0]?.wa_id;
+      if (!waId) throw new Error('Missing wa_id in message');
+      const messageTableSK = `MESSAGE#${new Date().toISOString()}#${messageId}`;
+
       // Step 1: Log the received message into MessagesTable
       const messageId = messageBody.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id;
       if (messageId) {
@@ -22,7 +27,7 @@ exports.handler = async (event) => {
             TableName: 'MessagesTable',
             Item: {
               pk: { S: `USER#${waId}` },
-              sk: { S: `MESSAGE#${new Date().toISOString()}#${messageId}` },
+              sk: { S: messageTableSK },
               status: { S: 'RECEIVED' },
               rawMessage: { S: JSON.stringify(messageBody) }
             }
@@ -117,9 +122,6 @@ exports.handler = async (event) => {
       });
 
       // Step 2f: Write structured OCR result to ReceiptsTable
-      const waId = messageBody.entry?.[0]?.changes?.[0]?.value?.contacts?.[0]?.wa_id;
-      if (!waId) throw new Error('Missing wa_id in message');
-
       await ddbClient.send(
         new PutItemCommand({
           TableName: 'ReceiptsTable',
@@ -145,7 +147,7 @@ exports.handler = async (event) => {
             TableName: 'MessagesTable',
             Item: {
               pk: { S: `USER#${waId}` },
-              sk: { S: `MESSAGE#${new Date().toISOString()}#${messageId}` },
+              sk: { S: messageTableSK },
               status: { S: 'OCR_PROCESSED' },
               receiptRef: { S: `RECEIPT#${imageId}` }
             }
