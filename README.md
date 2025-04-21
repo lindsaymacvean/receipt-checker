@@ -111,16 +111,20 @@ https://<CustomDomainName>/${StageName}/meta_webhook
 ```
 
 ## Post-Deployment Configuration
-After deploying the stack, you must populate the system user access token used by the WhatsApp Cloud API. The SAM template creates a Secrets Manager secret named `WhatsAppSystemUserToken`.
+After deploying the stack, you must populate the system user access token used by the WhatsApp Cloud API. The SAM template creates a Secrets Manager secret named `ReceiptCheckerSecrets`.
 
 To set your system user token, run:
 ```bash
 aws secretsmanager put-secret-value \
-  --secret-id WhatsAppSystemUserToken \
-  --secret-string '{"access_token":"<YOUR_SYSTEM_USER_TOKEN>"}'
+  --secret-id ReceiptCheckerSecrets \
+  --secret-string '{
+          "access_token": "YOUR_WA_TOKEN",
+          "ocr_endpoint": "https://xxx.cognitiveservices.azure.com",
+          "ocr_key": "abc123secret"
+        }'
 ```
 
-Alternatively, you can update the `WhatsAppSystemUserToken` secret via the AWS Console under Secrets Manager.
+Alternatively, you can update the `ReceiptCheckerSecrets` secret via the AWS Console under Secrets Manager.
 
 ## Cleanup
 ```bash

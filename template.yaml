@@ -189,12 +189,16 @@ Resources:
           Value: ReceiptChecker
 
   # Secrets Manager secret for WhatsApp system user token
-  WhatsAppSystemUserToken:
+  ReceiptCheckerSecrets:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: WhatsAppSystemUserToken
+      Name: ReceiptCheckerSecrets
       Description: "Stores the system user token used to authenticate calls to the WhatsApp Cloud API"
-      SecretString: '{"access_token":""}'
+      SecretString: '{
+          "access_token": "YOUR_WA_TOKEN",
+          "ocr_endpoint": "https://xxx.cognitiveservices.azure.com",
+          "ocr_key": "abc123secret"
+        }'
       Tags:
         - Key: App
           Value: ReceiptChecker

@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "Lambda functions for MetaWebhook and ReceiptChecker",
   "dependencies": {
-    "@aws-sdk/client-sqs": "^3.0.0"
+    "@aws-sdk/client-sqs": "^3.0.0",
+    "@aws-sdk/client-secrets-manager": "^3.0.0",
+    "@aws-sdk/client-dynamodb": "^3.0.0"
   }
 }
