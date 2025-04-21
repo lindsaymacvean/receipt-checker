@@ -13,7 +13,23 @@ exports.handler = async (event) => {
     try {
       const messageBody = JSON.parse(record.body);
       console.log("📥 Received SQS message:", JSON.stringify(messageBody, null, 2));
-      
+
+      // Step 1: Log the received message into MessagesTable
+      const messageId = messageBody.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id;
+      if (messageId) {
+        await ddbClient.send(
+          new PutItemCommand({
+            TableName: 'MessagesTable',
+            Item: {
+              pk: { S: `MESSAGE#${messageId}` },
+              sk: { S: 'RECEIVED' },
+              rawMessage: { S: JSON.stringify(messageBody) }
+            }
+          })
+        );
+        console.log('✅ Logged message into MessagesTable');
+      }
+
       // Step 2a: Extract image ID from messageBody
       const imageId = messageBody.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.image?.id;
       if (!imageId) {
@@ -100,12 +116,15 @@ exports.handler = async (event) => {
       });
 
       // Step 2f: Write structured OCR result to ReceiptsTable
+      const waId = messageBody.entry?.[0]?.changes?.[0]?.value?.contacts?.[0]?.wa_id;
+      if (!waId) throw new Error('Missing wa_id in message');
+
       await ddbClient.send(
         new PutItemCommand({
           TableName: 'ReceiptsTable',
           Item: {
-            pk: { S: `RECEIPT#${imageId}` },
-            sk: { S: new Date().toISOString() },
+            pk: { S: `USER#${waId}` },
+            sk: { S: `RECEIPT#${new Date().toISOString()}#${imageId}` },
             merchant: { S: merchant },
             total: { N: total.toString() },
             txDate: { S: txDate || 'UNKNOWN' },
@@ -119,7 +138,6 @@ exports.handler = async (event) => {
       console.log('✅ Saved structured receipt to ReceiptsTable');
 
       // Step 2g: Optionally link back to MessagesTable
-      const messageId = messageBody.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id;
       if (messageId) {
         await ddbClient.send(
           new PutItemCommand({
