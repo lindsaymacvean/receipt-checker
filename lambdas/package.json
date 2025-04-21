@@ -1,0 +1,8 @@
+{
+  "name": "receipt-checker-lambdas",
+  "version": "1.0.0",
+  "description": "Lambda functions for MetaWebhook and ReceiptChecker",
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.0.0"
+  }
+}

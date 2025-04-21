@@ -1,5 +1,5 @@
-const AWS = require('aws-sdk');
-const sqs = new AWS.SQS();
+const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
+const sqsClient = new SQSClient();
 
 const QUEUE_URL = process.env.RECEIPT_PROCESSING_QUEUE_URL;
 
@@ -19,10 +19,12 @@ exports.handler = async (event) => {
 
   // Send message to SQS
   try {
-    await sqs.sendMessage({
-      QueueUrl: QUEUE_URL,
-      MessageBody: JSON.stringify(body)
-    }).promise();
+    await sqsClient.send(
+      new SendMessageCommand({
+        QueueUrl: QUEUE_URL,
+        MessageBody: JSON.stringify(body)
+      })
+    );
     console.log('Message sent to SQS');
   } catch (err) {
     console.error('Failed to send to SQS:', err);
