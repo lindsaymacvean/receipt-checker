@@ -103,6 +103,60 @@ Resources:
             Method: POST
     Metadata:
       SamResourceId: MetaWebhookPostHandler
+  MessagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: MessagesTable
+      AttributeDefinitions:
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
+      KeySchema:
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      Tags:
+      - Key: App
+        Value: ReceiptChecker
+  ReceiptsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ReceiptsTable
+      AttributeDefinitions:
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
+      KeySchema:
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      Tags:
+      - Key: App
+        Value: ReceiptChecker
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: UsersTable
+      AttributeDefinitions:
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
+      KeySchema:
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      Tags:
+      - Key: App
+        Value: ReceiptChecker
 Outputs:
   ApiEndpoint:
     Description: URL of the MetaWebhook API endpoint
