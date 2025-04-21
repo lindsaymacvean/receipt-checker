@@ -87,6 +87,9 @@ Resources:
     Properties:
       CodeUri: lambdas/
       Handler: metaWebhookPostHandler.handler
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt ReceiptProcessingQueue.QueueName
       Events:
         PostWebhook:
           Type: Api
@@ -94,6 +97,15 @@ Resources:
             RestApiId: !Ref MetaWebhookApi
             Path: /meta_webhook
             Method: POST
+
+  ReceiptProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ReceiptProcessingQueue
+      VisibilityTimeout: 60
+      Tags:
+        - Key: App
+          Value: ReceiptChecker
 
   # DynamoDB tables for receipt processing
   MessagesTable:

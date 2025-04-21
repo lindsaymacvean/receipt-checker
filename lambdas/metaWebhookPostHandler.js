@@ -1,5 +1,9 @@
+const AWS = require('aws-sdk');
+const sqs = new AWS.SQS();
+
+const QUEUE_URL = process.env.RECEIPT_PROCESSING_QUEUE_URL;
+
 exports.handler = async (event) => {
-  // Safely parse the JSON body
   let body;
   try {
     body = JSON.parse(event.body);
@@ -13,12 +17,25 @@ exports.handler = async (event) => {
     };
   }
 
-  // Placeholder: you can handle different message types here
-  // e.g., if (body.entry && body.entry[0].changes) { ... }
+  // Send message to SQS
+  try {
+    await sqs.sendMessage({
+      QueueUrl: QUEUE_URL,
+      MessageBody: JSON.stringify(body)
+    }).promise();
+    console.log('Message sent to SQS');
+  } catch (err) {
+    console.error('Failed to send to SQS:', err);
+    return {
+      statusCode: 500,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ error: 'Failed to enqueue message' })
+    };
+  }
 
   return {
     statusCode: 200,
     headers: { 'Access-Control-Allow-Origin': '*' },
-    body: JSON.stringify({ message: 'OK' })
+    body: JSON.stringify({ message: 'Queued for processing' })
   };
 };
