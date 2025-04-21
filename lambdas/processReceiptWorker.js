@@ -29,7 +29,12 @@ exports.handler = async (event) => {
       const accessToken = secret.access_token;
       const ocrEndpoint = secret.ocr_endpoint;
       const ocrKey = secret.ocr_key;
-      if (!accessToken) throw new Error('Missing access_token in secret');
+      if (!accessToken || typeof accessToken !== 'string' || !accessToken.startsWith('EAA'))
+        throw new Error('Invalid or missing access_token in secret');
+      if (ocrEndpoint !== 'https://receipt-organizer.cognitiveservices.azure.com')
+        console.warn('⚠️ Warning: ocrEndpoint does not match the expected value.');
+      if (!ocrKey || typeof ocrKey !== 'string' || !ocrKey.startsWith('1EC'))
+        console.warn('⚠️ Warning: ocrKey does not start with the expected prefix "1EC".');
 
       // Step 2c: Get media download URL from WhatsApp Graph API
       const graphUrl = `https://graph.facebook.com/v17.0/${imageId}?fields=url`;
@@ -45,11 +50,8 @@ exports.handler = async (event) => {
       const mediaResp = await fetch(downloadUrl);
       const imageBuffer = await mediaResp.arrayBuffer();
 
-      // Step 2e: Send image to Azure OCR
-      if (!ocrEndpoint || !ocrKey) {
-        throw new Error('Azure OCR endpoint or key not configured');
-      }
-      const ocrInit = await fetch(`${ocrEndpoint}/vision/v3.2/read/analyze`, {
+      // Step 2e: Send image to Azure OCR (Receipt model)
+      const ocrInit = await fetch(`${ocrEndpoint}/formrecognizer/documentModels/prebuilt-receipt:analyze?api-version=2023-07-31`, {
         method: 'POST',
         headers: {
           'Ocp-Apim-Subscription-Key': ocrKey,
@@ -57,7 +59,8 @@ exports.handler = async (event) => {
         },
         body: Buffer.from(imageBuffer)
       });
-      if (!ocrInit.ok) throw new Error(`OCR init failed: ${ocrInit.statusText}`);
+
+      if (ocrInit.status !== 202) throw new Error(`OCR init failed: ${ocrInit.statusText}`);
       const operationLocation = ocrInit.headers.get('operation-location');
       if (!operationLocation) throw new Error('Missing operation-location header');
 
@@ -72,23 +75,41 @@ exports.handler = async (event) => {
         if (ocrResult.status === 'succeeded') break;
       }
       if (ocrResult.status !== 'succeeded') throw new Error('OCR processing did not succeed');
-      const lines = ocrResult.analyzeResult.readResults.flatMap(r => r.lines.map(l => l.text));
-      const ocrText = lines.join('\n');
-      console.log('OCR Text:', ocrText);
 
-      // Step 2f: Write OCR result to ReceiptsTable
+      const doc = ocrResult.analyzeResult.documents?.[0];
+      if (!doc) throw new Error('No document returned');
+
+      const f = doc.fields;
+      const merchant = f.MerchantName?.valueString || 'UNKNOWN';
+      const total = f.Total?.valueNumber || 0;
+      const txDate = f.TransactionDate?.valueDate || null;
+      const txTime = f.TransactionTime?.valueTime || null;
+
+      const items = (f.Items?.valueArray || []).map(item => {
+        const desc = item.valueObject?.Description?.valueString || '';
+        const qty = item.valueObject?.Quantity?.valueNumber || 1;
+        const price = item.valueObject?.Price?.valueNumber || item.valueObject?.TotalPrice?.valueNumber || 0;
+        return `${qty} x ${desc} @ ${price.toFixed(2)}`;
+      });
+
+      // Step 2f: Write structured OCR result to ReceiptsTable
       await ddbClient.send(
         new PutItemCommand({
           TableName: 'ReceiptsTable',
           Item: {
             pk: { S: `RECEIPT#${imageId}` },
             sk: { S: new Date().toISOString() },
+            merchant: { S: merchant },
+            total: { N: total.toString() },
+            txDate: { S: txDate || 'UNKNOWN' },
+            txTime: { S: txTime || 'UNKNOWN' },
+            items: { S: items.join('\n') },
             imageUrl: { S: downloadUrl },
-            text: { S: ocrText }
+            rawJson: { S: JSON.stringify(ocrResult) } // keep full OCR data for debugging
           }
         })
       );
-      console.log('Saved OCR result to ReceiptsTable');
+      console.log('✅ Saved structured receipt to ReceiptsTable');
 
       // Step 2g: Optionally link back to MessagesTable
       const messageId = messageBody.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id;
