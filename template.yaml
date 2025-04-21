@@ -90,6 +90,9 @@ Resources:
       Policies:
         - SQSSendMessagePolicy:
             QueueName: !GetAtt ReceiptProcessingQueue.QueueName
+      Environment:
+        Variables:
+          RECEIPT_PROCESSING_QUEUE_URL: !Ref ReceiptProcessingQueue
       Events:
         PostWebhook:
           Type: Api
@@ -116,8 +119,7 @@ Resources:
             Queue: !GetAtt ReceiptProcessingQueue.Arn
             BatchSize: 10
       Tags:
-        - Key: App
-          Value: ReceiptChecker
+        App: ReceiptChecker
 
   ReceiptProcessingQueue:
     Type: AWS::SQS::Queue
