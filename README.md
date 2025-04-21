@@ -126,3 +126,6 @@ Alternatively, you can use the included `teardown.sh` script to target a specifi
 
 If struggling to register a number on whatsapp business platform see here
 [https://stackoverflow.com/questions/78348741/the-account-does-not-exist-in-the-cloud-api-whatsapp-business-api-problem-wi](https://stackoverflow.com/questions/78348741/the-account-does-not-exist-in-the-cloud-api-whatsapp-business-api-problem-wi)
+
+If struggling with webhooks from meta see here
+[https://stackoverflow.com/questions/79175537/whatsapp-business-api-messages-webhook-not-triggering-even-with-manual-testin](https://stackoverflow.com/questions/79175537/whatsapp-business-api-messages-webhook-not-triggering-even-with-manual-testin)
