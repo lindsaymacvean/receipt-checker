@@ -1,5 +1,5 @@
 // Lambda: processReceiptWorker.js
-// Triggered by SQS queue (ReceiptProcessingQueue)
+// Triggered by SQS queue (ImageProcessingQueue)
 // Goal: Log incoming WhatsApp messages, and later process receipts
 
 const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
@@ -19,7 +19,13 @@ exports.handler = async (event) => {
       if (!waId) throw new Error('Missing wa_id in message');
       const messageId = messageBody.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id;
       if (!messageId) throw new Error('Missing messageId in message');
-      const messageTableSK = `MESSAGE#${new Date().toISOString()}#${messageId}`;
+      const dateMessageId = `MESSAGE#${new Date().toISOString()}#${messageId}`;
+
+      // TODO: check if user exists already and has enough credits
+      // TODO: If user does not exist, create a new user in the database and send a welcome message
+      // TODO: if not enough credits and new, send a message to the user to sign up
+      // TODO: if not enough credits and existing, send a message to the user to top up
+      // TODO: start a heartbeat 3 min delay to an sqs queue
 
       // Step 1: Log the received message into MessagesTable
       await ddbClient.send(
@@ -27,7 +33,7 @@ exports.handler = async (event) => {
           TableName: 'MessagesTable',
           Item: {
             pk: { S: `USER#${waId}` },
-            sk: { S: messageTableSK },
+            sk: { S: dateMessageId },
             status: { S: 'RECEIVED' },
             rawMessage: { S: JSON.stringify(messageBody) }
           }
@@ -78,6 +84,8 @@ exports.handler = async (event) => {
       if (!mediaResp.ok) throw new Error(`Failed to download media: ${mediaResp.statusText}`);
       const imageBuffer = await mediaResp.arrayBuffer();
 
+      // TODO: check if image is duplicate
+
       // Step 2e: Send image to Azure OCR (Receipt model)
       const ocrInit = await fetch(`${ocrEndpoint}/formrecognizer/documentModels/prebuilt-receipt:analyze?api-version=2023-07-31`, {
         method: 'POST',
@@ -120,20 +128,26 @@ exports.handler = async (event) => {
         return `${qty} x ${desc} @ ${price.toFixed(2)}`;
       });
 
+      // TODO: check if receipt is low confidence and send message to user
+      // TODO: check if receipt data is bayesian (see arch) likely duplicate and send message to user
+      // TODO: Lookup category from Vendor
+      // TODO: If no category then try to detect using brave api
+
       // Step 2f: Write structured OCR result to ReceiptsTable
       await ddbClient.send(
         new PutItemCommand({
           TableName: 'ReceiptsTable',
           Item: {
             pk: { S: `USER#${waId}` },
-            sk: { S: `RECEIPT#${new Date().toISOString()}#${imageId}` },
+            sk: { S: `RECEIPT#${new Date().toISOString()}#${total.toString()}` },
             merchant: { S: merchant },
             total: { N: total.toString() },
             txDate: { S: txDate || 'UNKNOWN' },
             txTime: { S: txTime || 'UNKNOWN' },
             items: { S: items.join('\n') },
-            imageUrl: { S: downloadUrl },
-            rawJson: { S: JSON.stringify(ocrResult) } // keep full OCR data for debugging
+            imageId: { S: imageId }, // This is duplicated from the message table
+            category: { S: 'UNKNOWN' },
+            rawJson: { S: JSON.stringify(ocrResult) }
           }
         })
       );
@@ -145,14 +159,16 @@ exports.handler = async (event) => {
           TableName: 'MessagesTable',
           Item: {
             pk: { S: `USER#${waId}` },
-            sk: { S: messageTableSK },
+            sk: { S: dateMessageId },
             status: { S: 'OCR_PROCESSED' },
-            receiptRef: { S: `RECEIPT#${imageId}` }
+            imageId: { S: `${imageId}` }
           }
         })
       );
       console.log('Linked receipt to message in MessagesTable');
-    
+
+      // TODO: Update summary table - daily, weekly, monthly / vendor, category, total spend (see arch)
+      // TODO: deduct credits from user (for 1 receipt 1cent?)
 
     } catch (err) {
       console.error("❌ Failed to process SQS record", err);
