@@ -1,7 +1,7 @@
 const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
 const sqsClient = new SQSClient();
 
-const QUEUE_URL = process.env.RECEIPT_PROCESSING_QUEUE_URL;
+const QUEUE_URL = process.env.IMAGE_PROCESSING_QUEUE_URL;
 
 exports.handler = async (event) => {
   let body;
