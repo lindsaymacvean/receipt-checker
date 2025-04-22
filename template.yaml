@@ -89,10 +89,13 @@ Resources:
       Handler: metaWebhookPostHandler.handler
       Policies:
         - SQSSendMessagePolicy:
-            QueueName: !GetAtt ReceiptProcessingQueue.QueueName
+            QueueName: !GetAtt ImageProcessingQueue.QueueName
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt TextProcessingQueue.QueueName
       Environment:
         Variables:
-          RECEIPT_PROCESSING_QUEUE_URL: !Ref ReceiptProcessingQueue
+          IMAGE_PROCESSING_QUEUE_URL: !Ref ImageProcessingQueue
+          TEXT_PROCESSING_QUEUE_URL: !Ref TextProcessingQueue
       Events:
         PostWebhook:
           Type: Api
@@ -127,15 +130,24 @@ Resources:
         ReceiptQueueEvent:
           Type: SQS
           Properties:
-            Queue: !GetAtt ReceiptProcessingQueue.Arn
+            Queue: !GetAtt ImageProcessingQueue.Arn
             BatchSize: 10
       Tags:
         App: ReceiptChecker
 
-  ReceiptProcessingQueue:
+  ImageProcessingQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: ReceiptProcessingQueue
+      QueueName: ImageProcessingQueue
+      VisibilityTimeout: 60
+      Tags:
+        - Key: App
+          Value: ReceiptChecker
+  
+  TextProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: TextProcessingQueue
       VisibilityTimeout: 60
       Tags:
         - Key: App
@@ -222,6 +234,9 @@ Outputs:
     Description: "Custom domain for the API"
     Value: !Ref CustomDomainName
 
-  ReceiptProcessingQueueUrl:
-    Description: URL of the ReceiptProcessingQueue SQS queue
-    Value: !Ref ReceiptProcessingQueue
+  ImageProcessingQueueUrl:
+    Description: URL of the ImageProcessingQueue SQS queue
+    Value: !Ref ImageProcessingQueue
+  TextProcessingQueueUrl:
+    Description: URL of the TextProcessingQueue SQS queue
+    Value: !Ref TextProcessingQueue
