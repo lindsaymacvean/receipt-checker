@@ -89,6 +89,7 @@ exports.handler = async (event) => {
         console.log("📥 Processing text message:", content);
         // Stage 1: Triage - classify the message
         let category;
+        let needsGraph = false;
         try {
           const triageResp = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -105,8 +106,17 @@ exports.handler = async (event) => {
             })
           });
           const triageData = await triageResp.json();
-          category = triageData.choices?.[0]?.message?.content.trim().toLowerCase();
-          console.log('🔍 Triage category:', category);
+          // Parse JSON result: { category: '...', needsGraph: true }
+          const triageContent = triageData.choices?.[0]?.message?.content.trim() || '';
+          try {
+            const triageResult = JSON.parse(triageContent);
+            category = (triageResult.category || '').toLowerCase();
+            needsGraph = Boolean(triageResult.needsGraph);
+          } catch (parseErr) {
+            // Fallback to raw string
+            category = triageContent.toLowerCase();
+          }
+          console.log('🔍 Triage category:', category, 'needsGraph:', needsGraph);
         } catch (err) {
           console.error('❌ Error during triage classification', err);
           continue;
