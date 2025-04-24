@@ -4,9 +4,12 @@
 
 const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 const { DynamoDBClient, PutItemCommand } = require('@aws-sdk/client-dynamodb');
+const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
 
 const secretsClient = new SecretsManagerClient();
 const ddbClient = new DynamoDBClient();
+// SQS client for heartbeat messages
+const sqsClient = new SQSClient();
 // Error handler layer
 const { handleError } = require('errorHandler');
 
@@ -197,6 +200,22 @@ exports.handler = async (event) => {
         })
       );
       console.log('Linked receipt to message in MessagesTable');
+
+      // Step 2h: Send heartbeat message to HeartbeatQueue
+      if (process.env.HEARTBEAT_QUEUE_URL) {
+        try {
+          await sqsClient.send(new SendMessageCommand({
+            QueueUrl: process.env.HEARTBEAT_QUEUE_URL,
+            MessageBody: JSON.stringify({ 
+              userId: waId,
+              timestamp: new Date().toISOString()
+            })
+          }));
+          console.log('✅ Sent heartbeat message to HeartbeatQueue');
+        } catch (hbErr) {
+          console.error('❌ Failed to send heartbeat message', hbErr);
+        }
+      }
 
       // TODO: Update summary table - daily, weekly, monthly / vendor, category, total spend (see arch)
       // TODO: deduct credits from user (for 1 receipt 1cent?)

@@ -133,8 +133,11 @@ Resources:
         Variables:
           META_SECRET_ID: !Ref MetaSecrets
           AZURE_SECRET_ID: !Ref AzureSecrets
+          HEARTBEAT_QUEUE_URL: !Ref HeartbeatQueue
       Policies:
         - AWSLambdaBasicExecutionRole
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt HeartbeatQueue.QueueName
         - Statement:
             - Effect: Allow
               Action:
@@ -205,6 +208,25 @@ Resources:
             Queue: !GetAtt TextProcessingQueue.Arn
             BatchSize: 10
 
+  HeartbeatLogger:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/
+      Handler: heartbeatLogger.handler
+      Runtime: nodejs18.x
+      Timeout: 30
+      MemorySize: 128
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        HeartbeatQueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt HeartbeatQueue.Arn
+            BatchSize: 10
+      Tags:
+        App: ReceiptChecker
+
   ImageProcessingQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -219,6 +241,16 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: TextProcessingQueue
+      VisibilityTimeout: 60
+      Tags:
+        - Key: App
+          Value: ReceiptChecker
+
+  # SQS queue for heartbeat delays to keep users engaged
+  HeartbeatQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: HeartbeatQueue
       VisibilityTimeout: 60
       Tags:
         - Key: App
@@ -348,3 +380,6 @@ Outputs:
   TextProcessingQueueUrl:
     Description: URL of the TextProcessingQueue SQS queue
     Value: !Ref TextProcessingQueue
+  HeartbeatQueueUrl:
+    Description: URL of the HeartbeatQueue SQS queue
+    Value: !Ref HeartbeatQueue
