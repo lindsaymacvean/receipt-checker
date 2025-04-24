@@ -226,8 +226,29 @@ exports.handler = async (event) => {
           } catch (err) {
             console.error('Error fetching user currency, defaulting to USD', err);
           }
+          // Retrieve short-term conversation history for context
+          let memoryHistory = '';
+          try {
+            const histKey = { pk: { S: `USER#${waId}` }, sk: { S: 'SHORTMEMORY' } };
+            const histResp = await ddbClient.send(new GetItemCommand({
+              TableName: 'ConversationHistoryTable',
+              Key: histKey,
+              ProjectionExpression: 'history'
+            }));
+            memoryHistory = histResp.Item?.history?.S || '';
+          } catch (histErr) {
+            console.error('Error fetching conversation history', histErr);
+          }
           const systemPrompt = prompts.summaryPrompt(userCurrency);
           const cleanedItems = items.map(({ rawJson, ...rest }) => rest);
+          // Build chat messages array including conversation history
+          const chatMessages = [
+            { role: 'system', content: systemPrompt }
+          ];
+          if (memoryHistory) {
+            chatMessages.push({ role: 'system', content: `Short-term conversation memory:\n${memoryHistory}` });
+          }
+          chatMessages.push({ role: 'user', content: prompts.summaryUserMessage(content, cleanedItems) });
           const respondResp = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -236,10 +257,7 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify({
               model: 'gpt-4',
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: prompts.summaryUserMessage(content, cleanedItems) }
-              ]
+              messages: chatMessages
             })
           });
           const respondData = await respondResp.json();
