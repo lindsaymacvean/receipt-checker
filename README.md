@@ -111,20 +111,33 @@ https://<CustomDomainName>/${StageName}/meta_webhook
 ```
 
 ## Post-Deployment Configuration
-After deploying the stack, you must populate the system user access token used by the WhatsApp Cloud API. The SAM template creates a Secrets Manager secret named `ReceiptCheckerSecrets`.
+After deploying the stack, you must populate three Secrets Manager secrets: `MetaSecrets`, `AzureSecrets`, and `OpenAISecrets`.
 
-To set your system user token, run:
+To set your WhatsApp system user token in MetaSecrets:
 ```bash
 aws secretsmanager put-secret-value \
-  --secret-id ReceiptCheckerSecrets \
-  --secret-string '{
-          "access_token": "YOUR_WA_TOKEN",
-          "ocr_endpoint": "https://<app-name>.cognitiveservices.azure.com/formrecognizer/documentModels/prebuilt-receipt:analyze?api-version=2023-07-31",
-          "ocr_key": "abc123secret"
-        }'
+  --secret-id MetaSecrets \
+  --secret-string '{"access_token":"YOUR_WA_TOKEN"}'
 ```
 
-Alternatively, you can update the `ReceiptCheckerSecrets` secret via the AWS Console under Secrets Manager.
+To set your Azure OCR endpoint and key in AzureSecrets:
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id AzureSecrets \
+  --secret-string '{
+    "ocr_endpoint":"https://<app-name>.cognitiveservices.azure.com",
+    "ocr_key":"YOUR_OCR_KEY"
+  }'
+```
+
+To set your OpenAI API key for the text processing worker:
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id OpenAISecrets \
+  --secret-string '{"openai_api_key":"YOUR_OPENAI_API_KEY"}'
+```
+
+Alternatively, you can update these secrets via the AWS Console under Secrets Manager.
 
 ## Cleanup
 ```bash

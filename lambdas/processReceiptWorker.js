@@ -49,15 +49,24 @@ exports.handler = async (event) => {
       }
 
       // Step 2b: Retrieve secrets from Secrets Manager
-      const sec = await secretsClient.send(
-        new GetSecretValueCommand({ SecretId: 'ReceiptCheckerSecrets' })
+      const metaSecretId = process.env.META_SECRET_ID;
+      if (!metaSecretId) throw new Error('Missing META_SECRET_ID in environment');
+      const metaSec = await secretsClient.send(
+        new GetSecretValueCommand({ SecretId: metaSecretId })
       );
-      const secret = JSON.parse(sec.SecretString);
-      const accessToken = secret.access_token;
-      const ocrEndpoint = secret.ocr_endpoint;
-      const ocrKey = secret.ocr_key;
+      const metaSecret = JSON.parse(metaSec.SecretString);
+      const accessToken = metaSecret.access_token;
       if (!accessToken || typeof accessToken !== 'string' || !accessToken.startsWith('EAA'))
-        throw new Error('Invalid or missing access_token in secret');
+        throw new Error('Invalid or missing access_token in MetaSecrets');
+
+      const azureSecretId = process.env.AZURE_SECRET_ID;
+      if (!azureSecretId) throw new Error('Missing AZURE_SECRET_ID in environment');
+      const azureSec = await secretsClient.send(
+        new GetSecretValueCommand({ SecretId: azureSecretId })
+      );
+      const azureSecret = JSON.parse(azureSec.SecretString);
+      const ocrEndpoint = azureSecret.ocr_endpoint;
+      const ocrKey = azureSecret.ocr_key;
       if (ocrEndpoint !== 'https://receipt-organizer.cognitiveservices.azure.com')
         console.warn('⚠️ Warning: ocrEndpoint does not match the expected value.');
       if (!ocrKey || typeof ocrKey !== 'string' || !ocrKey.startsWith('1EC'))

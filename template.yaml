@@ -112,6 +112,10 @@ Resources:
       Runtime: nodejs18.x
       Timeout: 30
       MemorySize: 128
+      Environment:
+        Variables:
+          META_SECRET_ID: !Ref MetaSecrets
+          AZURE_SECRET_ID: !Ref AzureSecrets
       Policies:
         - AWSLambdaBasicExecutionRole
         - Statement:
@@ -119,7 +123,8 @@ Resources:
               Action:
                 - secretsmanager:GetSecretValue
               Resource:
-                Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:ReceiptCheckerSecrets*
+                - Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:MetaSecrets*
+                - Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:AzureSecrets*
             - Effect: Allow
               Action:
                 - dynamodb:PutItem
@@ -143,6 +148,15 @@ Resources:
       Handler: textProcessingWorker.handler
       Policies:
         - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource:
+                Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:OpenAISecrets*
+      Environment:
+        Variables:
+          OPENAI_SECRET_ID: !Ref OpenAISecrets
       Events:
         TextQueueEvent:
           Type: SQS
@@ -226,17 +240,34 @@ Resources:
         - Key: App
           Value: ReceiptChecker
 
-  # Secrets Manager secret for WhatsApp system user token
-  ReceiptCheckerSecrets:
+  # Secrets Manager secret for WhatsApp Cloud API access token
+  MetaSecrets:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: ReceiptCheckerSecrets
-      Description: "Stores the system user token used to authenticate calls to the WhatsApp Cloud API"
-      SecretString: '{
-          "access_token": "YOUR_WA_TOKEN",
-          "ocr_endpoint": "https://xxx.cognitiveservices.azure.com",
-          "ocr_key": "abc123secret"
-        }'
+      Name: MetaSecrets
+      Description: "Stores the WhatsApp Cloud API system user access token"
+      SecretString: '{"access_token":"YOUR_WA_TOKEN"}'
+      Tags:
+        - Key: App
+          Value: ReceiptChecker
+
+  # Secrets Manager secret for Azure OCR configuration
+  AzureSecrets:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: AzureSecrets
+      Description: "Stores the Azure OCR endpoint and subscription key"
+      SecretString: '{"ocr_endpoint":"https://xxx.cognitiveservices.azure.com","ocr_key":"abc123secret"}'
+      Tags:
+        - Key: App
+          Value: ReceiptChecker
+  # Secrets Manager secret for OpenAI API key
+  OpenAISecrets:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: OpenAISecrets
+      Description: "Stores the API key for OpenAI Chat Completions"
+      SecretString: '{"openai_api_key":"YOUR_OPENAI_API_KEY"}'
       Tags:
         - Key: App
           Value: ReceiptChecker
