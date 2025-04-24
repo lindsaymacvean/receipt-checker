@@ -26,7 +26,8 @@ The table is "ReceiptsTable" with primary key "pk" and sort key "sk".
 When the user query references a time period (e.g. "last week", "yesterday", "March"), 
 generate a KeyConditionExpression that includes a BETWEEN clause on the sort key using ISO 8601 timestamps.
 
-Return a complete, valid JSON object that can be passed to DynamoDB QueryCommand.
+Respond ONLY with valid, comment-free JSON that can be parsed with JSON.parse().
+Do NOT include any explanations or inline comments.
 `;
 
 // Prompt generator for summarizing receipt data with user currency
