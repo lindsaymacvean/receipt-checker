@@ -145,16 +145,13 @@ exports.handler = async (event) => {
           // Build a system prompt with the actual user partition key value
           const pkValue = `USER#${waId}`;
           const systemPrompt = `
-            Translate the user question into a DynamoDB QueryCommand parameter object. 
-            The DynamoDB table is \"ReceiptsTable\" with primary key attribute \"pk\" (partition key) and \"sk\" (sort key). 
-            The partition key value for this user is \"${pkValue}\". 
-            Use KeyConditionExpression \"pk = :pk\" and any additional range conditions on \"sk\" 
-            (e.g., begins_with or BETWEEN) based on the question. 
-            Include ExpressionAttributeValues mapping ":pk" to "${pkValue}" and any other parameter values. 
-            If you need to reference reserved words, also use ExpressionAttributeNames. 
-            Respond with only the JSON object for the QueryCommand parameters 
-            (TableName, KeyConditionExpression, ExpressionAttributeValues, and optional ExpressionAttributeNames), 
-            with valid JSON syntax only.`;
+              Translate the user question into a DynamoDB QueryCommand parameter object.
+              The table is "ReceiptsTable" with primary key "pk" and sort key "sk".
+              The "pk" is of the form "USER#<wa_id>". The "sk" is of the form "RECEIPT#<ISO date>#<amount>".
+              Use KeyConditionExpression "pk = :pk" and optionally use conditions on the sk prefix with "begins_with(sk, 'RECEIPT#2025-04-24')" if filtering by day.
+              Do not invent sort key prefixes like WEEK# or DAY# that don't exist in the data model.
+              Provide only valid JSON for the QueryCommand.
+            `;
           const queryResp = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
