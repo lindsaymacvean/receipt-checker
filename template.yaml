@@ -193,6 +193,7 @@ Resources:
         Variables:
           OPENAI_SECRET_ID: !Ref OpenAISecrets
           META_SECRET_ID: !Ref MetaSecrets
+      Timeout: 900
       Events:
         TextQueueEvent:
           Type: SQS
