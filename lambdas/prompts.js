@@ -23,6 +23,8 @@ The table is "ReceiptsTable" with primary key "pk" and sort key "sk".
 - "pk" is of the form "${pkValue}".
 - "sk" starts with "RECEIPT#<ISO timestamp>#<amount>", e.g., "RECEIPT#2025-04-24T13:15:35.264Z#20.99".
 
+The current date is "${currentDate}".
+
 When the user query references a time period (e.g. "last week", "yesterday", "March"), 
 generate a KeyConditionExpression that includes a BETWEEN clause on the sort key using ISO 8601 timestamps.
 
