@@ -135,6 +135,21 @@ Resources:
       Tags:
         App: ReceiptChecker
 
+  
+  TextProcessingWorker:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/
+      Handler: textProcessingWorker.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        TextQueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt TextProcessingQueue.Arn
+            BatchSize: 10
+
   ImageProcessingQueue:
     Type: AWS::SQS::Queue
     Properties:
