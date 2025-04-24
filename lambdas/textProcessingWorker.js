@@ -255,7 +255,7 @@ exports.handler = async (event) => {
         // Update conversation history in DynamoDB
         try {
           const pkKey = `USER#${waId}`;
-          const skKey = 'MEMORY';
+          const skKey = 'SHORTMEMORY';
           const getResp = await ddbClient.send(new GetItemCommand({
             TableName: 'ConversationHistoryTable',
             Key: { pk: { S: pkKey }, sk: { S: skKey } },

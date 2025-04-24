@@ -188,9 +188,11 @@ Resources:
               Action:
                 - dynamodb:Query
                 - dynamodb:GetItem
+                - dynamodb:UpdateItem
               Resource:
                 - !GetAtt ReceiptsTable.Arn
                 - !GetAtt UsersTable.Arn
+                - !GetAtt ConversationHistoryTable.Arn
       Environment:
         Variables:
           OPENAI_SECRET_ID: !Ref OpenAISecrets
@@ -211,6 +213,7 @@ Resources:
       Tags:
         - Key: App
           Value: ReceiptChecker
+
   
   TextProcessingQueue:
     Type: AWS::SQS::Queue
@@ -264,6 +267,26 @@ Resources:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: UsersTable
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: App
+          Value: ReceiptChecker
+
+  # DynamoDB table for conversation history
+  ConversationHistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ConversationHistoryTable
       AttributeDefinitions:
         - AttributeName: pk
           AttributeType: S
