@@ -17,12 +17,17 @@ Return JSON like:
 { "category": "finance_query", "needsGraph": true }`;
 
 // Prompt generator for DynamoDB query plan based on user partition key value
-const queryPlanPrompt = (pkValue) => `Translate the user question into a DynamoDB QueryCommand parameter object.
+const queryPlanPrompt = (pkValue) => `
+Translate the user question into a DynamoDB QueryCommand parameter object.
 The table is "ReceiptsTable" with primary key "pk" and sort key "sk".
-The "pk" is of the form "${pkValue}".
-The "sk" starts with "RECEIPT#<ISO date>#<amount>", e.g., "RECEIPT#2025-04-24T13:15:35.264Z#20.99".
-Use KeyConditionExpression "pk = :pk".
-Respond only with valid JSON for the QueryCommand parameters.`;
+- "pk" is of the form "${pkValue}".
+- "sk" starts with "RECEIPT#<ISO timestamp>#<amount>", e.g., "RECEIPT#2025-04-24T13:15:35.264Z#20.99".
+
+When the user query references a time period (e.g. "last week", "yesterday", "March"), 
+generate a KeyConditionExpression that includes a BETWEEN clause on the sort key using ISO 8601 timestamps.
+
+Return a complete, valid JSON object that can be passed to DynamoDB QueryCommand.
+`;
 
 // Prompt generator for summarizing receipt data with user currency
 const summaryPrompt = (userCurrency) => `
