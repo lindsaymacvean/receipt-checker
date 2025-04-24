@@ -143,18 +143,20 @@ exports.handler = async (event) => {
       // TODO: If no category then try to detect using brave api
 
       // Step 2f: Write structured OCR result to ReceiptsTable
+      const receiptPk = `USER#${waId}`;
+      const receiptSk = `RECEIPT#${new Date().toISOString()}#${total.toString()}`;
       await ddbClient.send(
         new PutItemCommand({
           TableName: 'ReceiptsTable',
           Item: {
-            pk: { S: `USER#${waId}` },
-            sk: { S: `RECEIPT#${new Date().toISOString()}#${total.toString()}` },
+            pk: { S: receiptPk },
+            sk: { S: receiptSk },
             merchant: { S: merchant },
             total: { N: total.toString() },
             txDate: { S: txDate || 'UNKNOWN' },
             txTime: { S: txTime || 'UNKNOWN' },
             items: { S: items.join('\n') },
-            imageId: { S: imageId }, // This is duplicated from the message table
+            imageId: { S: imageId },
             category: { S: 'UNKNOWN' },
             rawJson: { S: JSON.stringify(ocrResult) }
           }
@@ -164,13 +166,21 @@ exports.handler = async (event) => {
 
       // Step 2g: Optionally link back to MessagesTable
       await ddbClient.send(
-        new PutItemCommand({
+        new UpdateItemCommand({
           TableName: 'MessagesTable',
-          Item: {
+          Key: {
             pk: { S: `USER#${waId}` },
-            sk: { S: dateMessageId },
-            status: { S: 'OCR_PROCESSED' },
-            imageId: { S: `${imageId}` }
+            sk: { S: dateMessageId }
+          },
+          UpdateExpression: 'SET #status = :status, imageId = :imageId, receiptRefPk = :receiptRefPk, receiptRefSk = :receiptRefSk',
+          ExpressionAttributeNames: {
+            '#status': 'status'
+          },
+          ExpressionAttributeValues: {
+            ':status': { S: 'OCR_PROCESSED' },
+            ':imageId': { S: imageId },
+            ':receiptRefPk': { S: receiptPk },
+            ':receiptRefSk': { S: receiptSk }
           }
         })
       );
