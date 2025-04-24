@@ -143,15 +143,15 @@ exports.handler = async (event) => {
         let queryParams;
         try {
           // Build a system prompt with the actual user partition key value
-          const pkValue = `USER#${waId}`;
+          const pkValue = `USER#${waId}`; // Replace <wa_id> with actual value
           const systemPrompt = `
-              Translate the user question into a DynamoDB QueryCommand parameter object.
-              The table is "ReceiptsTable" with primary key "pk" and sort key "sk".
-              The "pk" is of the form "USER#<wa_id>". The "sk" is of the form "RECEIPT#<ISO date>#<amount>".
-              Use KeyConditionExpression "pk = :pk" and optionally use conditions on the sk prefix with "begins_with(sk, 'RECEIPT#2025-04-24')" if filtering by day.
-              Do not invent sort key prefixes like WEEK# or DAY# that don't exist in the data model.
-              Provide only valid JSON for the QueryCommand.
-            `;
+            Translate the user question into a DynamoDB QueryCommand parameter object.
+            The table is "ReceiptsTable" with primary key "pk" and sort key "sk".
+            The "pk" is of the form "${pkValue}".
+            The "sk" starts with "RECEIPT#<ISO date>#<amount>", e.g., "RECEIPT#2025-04-24T13:15:35.264Z#20.99".
+            Use KeyConditionExpression "pk = :pk".
+            Respond only with valid JSON for the QueryCommand parameters.
+          `;
           const queryResp = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
