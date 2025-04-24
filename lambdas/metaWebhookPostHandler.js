@@ -1,6 +1,9 @@
 const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
 const { DynamoDBClient, GetItemCommand, PutItemCommand } = require('@aws-sdk/client-dynamodb');
+const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 const sqsClient = new SQSClient();
+// Secrets Manager client for retrieving WhatsApp token
+const secretsClient = new SecretsManagerClient();
 
 // SQS queue URLs for image and text processing
 const IMAGE_QUEUE_URL = process.env.IMAGE_PROCESSING_QUEUE_URL;
@@ -28,21 +31,61 @@ exports.handler = async (event) => {
     if (Array.isArray(changes) && changes.length > 0) {
       const waId = changes[0].value?.contacts?.[0]?.wa_id;
       if (waId) {
+        // Use composite key: pk=waId, sk=METADATA
+        const userKey = { pk: { S: waId }, sk: { S: 'METADATA' } };
         const getResp = await ddbClient.send(new GetItemCommand({
           TableName: 'UsersTable',
-          Key: { pk: { S: waId } }
+          Key: userKey
         }));
         if (!getResp.Item) {
+          const newUser = {
+            ...userKey,
+            status: { S: 'freetrial' },
+            credits: { N: '100' },
+            createdAt: { S: new Date().toISOString() }
+          };
           await ddbClient.send(new PutItemCommand({
             TableName: 'UsersTable',
-            Item: {
-              pk: { S: waId },
-              status: { S: 'freetrial' },
-              credits: { N: '100' },
-              createdAt: { S: new Date().toISOString() }
-            }
+            Item: newUser
           }));
           console.log(`New user created: ${waId}`);
+          // Send welcome message to the new WhatsApp user
+          const phoneNumberId = changes[0].value?.metadata?.phone_number_id;
+          if (phoneNumberId) {
+            try {
+              const sec = await secretsClient.send(new GetSecretValueCommand({ SecretId: process.env.META_SECRET_ID }));
+              const metaSecret = JSON.parse(sec.SecretString);
+              const accessToken = metaSecret.access_token;
+              // Customize welcome text based on incoming message type
+              const incomingMessages = changes[0].value?.messages || [];
+              const isImageMessage = incomingMessages.some(m => m.type === 'image' || m.image);
+              let welcomeText;
+              if (isImageMessage) {
+                welcomeText = 'Thanks for the image! We\'ve queued your receipt. Feel free to send me another one or ask me a question about your spending.';
+              } else {
+                welcomeText = 'Welcome to ReceiptChecker! Ok lets get started. Send us a photo of a receipt to get started.';
+              }
+              const whatsappUrl = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
+              const sendResp = await fetch(whatsappUrl, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  messaging_product: 'whatsapp',
+                  to: waId,
+                  text: { body: welcomeText }
+                })
+              });
+              const sendData = await sendResp.json();
+              console.log('✅ Welcome message sent:', JSON.stringify(sendData, null, 2));
+            } catch (err) {
+              console.error('❌ Error sending welcome message', err);
+            }
+          } else {
+            console.warn('No phone_number_id found, cannot send welcome message');
+          }
         }
       }
     }
