@@ -137,6 +137,7 @@ exports.handler = async (event) => {
         }
 
         // Stage 2: Generate DynamoDB query plan
+        // Stage 2: Generate DynamoDB query plan (JSON)
         let queryParams;
         try {
           const queryResp = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -148,15 +149,25 @@ exports.handler = async (event) => {
             body: JSON.stringify({
               model: 'gpt-3.5-turbo',
               messages: [
-                { role: 'system', content: 'Translate the user question into a DynamoDB QueryCommand parameter object. Use the ReceiptsTable and specify KeyConditionExpression and ExpressionAttributeValues as needed. Respond with only the JSON object.' },
+                { role: 'system', content: 'Translate the user question into a DynamoDB QueryCommand parameter object. Use ReceiptsTable, specify KeyConditionExpression and ExpressionAttributeValues appropriately. Respond with only valid JSON (double-quoted property names and string values), without any code fences or extra text.' },
                 { role: 'user', content }
               ]
             })
           });
           const queryData = await queryResp.json();
-          const queryText = queryData.choices?.[0]?.message?.content;
+          let queryText = queryData.choices?.[0]?.message?.content || '';
           console.log('📋 Query plan (raw):', queryText);
-          queryParams = JSON.parse(queryText);
+          // Try parsing raw JSON; if it fails, sanitize common JS literal patterns
+          const trimmed = queryText.trim();
+          try {
+            queryParams = JSON.parse(trimmed);
+          } catch (err1) {
+            // Wrap unquoted keys and remove trailing commas
+            const wrapped = trimmed.replace(/([{,]\s*)([A-Za-z0-9_]+)\s*:/g, '$1"$2":');
+            const clean = wrapped.replace(/,(\s*})/g, '$1');
+            console.log('📋 Sanitized query plan:', clean);
+            queryParams = JSON.parse(clean);
+          }
         } catch (err) {
           console.error('❌ Error generating or parsing query plan', err);
           continue;
