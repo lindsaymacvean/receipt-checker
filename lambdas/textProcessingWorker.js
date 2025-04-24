@@ -176,6 +176,17 @@ exports.handler = async (event) => {
         // Execute the DynamoDB query
         let items = [];
         try {
+          // Convert primitive ExpressionAttributeValues to DynamoDB AttributeValue types
+          if (queryParams.ExpressionAttributeValues) {
+            for (const key of Object.keys(queryParams.ExpressionAttributeValues)) {
+              const val = queryParams.ExpressionAttributeValues[key];
+              if (typeof val === 'string') {
+                queryParams.ExpressionAttributeValues[key] = { S: val };
+              } else if (typeof val === 'number') {
+                queryParams.ExpressionAttributeValues[key] = { N: val.toString() };
+              }
+            }
+          }
           const result = await ddbClient.send(new QueryCommand(queryParams));
           items = result.Items || [];
           console.log('📊 DynamoDB query returned items:', JSON.stringify(items, null, 2));
