@@ -12,6 +12,11 @@ const IMAGE_QUEUE_URL = process.env.IMAGE_PROCESSING_QUEUE_URL;
 const TEXT_QUEUE_URL = process.env.TEXT_PROCESSING_QUEUE_URL;
 // DynamoDB client for user lookup
 const ddbClient = new DynamoDBClient();
+// Mapping of country calling codes to currency codes
+const countryCurrencyMap = {
+  '353': 'EUR',
+  '44': 'GBP'
+};
 
 exports.handler = async (event) => {
   // TODO: secure the webhook with a certificate
@@ -59,8 +64,19 @@ exports.handler = async (event) => {
           Key: userKey
         }));
         if (!getResp.Item) {
+          // Save phone number and infer currency
+          const phoneNumber = waId;
+          let currency = 'USD';
+          for (const code in countryCurrencyMap) {
+            if (phoneNumber.startsWith(code)) {
+              currency = countryCurrencyMap[code];
+              break;
+            }
+          }
           const newUser = {
             ...userKey,
+            phoneNumber: { S: phoneNumber },
+            currency: { S: currency },
             status: { S: 'freetrial' },
             credits: { N: '100' },
             createdAt: { S: new Date().toISOString() }
