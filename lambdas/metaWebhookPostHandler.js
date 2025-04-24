@@ -1,9 +1,12 @@
 const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
+const { DynamoDBClient, GetItemCommand, PutItemCommand } = require('@aws-sdk/client-dynamodb');
 const sqsClient = new SQSClient();
 
 // SQS queue URLs for image and text processing
 const IMAGE_QUEUE_URL = process.env.IMAGE_PROCESSING_QUEUE_URL;
 const TEXT_QUEUE_URL = process.env.TEXT_PROCESSING_QUEUE_URL;
+// DynamoDB client for user lookup
+const ddbClient = new DynamoDBClient();
 
 exports.handler = async (event) => {
   // TODO: secure the webhook with a certificate
@@ -18,6 +21,33 @@ exports.handler = async (event) => {
       headers: { 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify({ error: 'Invalid JSON' })
     };
+  }
+  // Check if this is a WhatsApp message and new user
+  try {
+    const changes = body.entry?.[0]?.changes;
+    if (Array.isArray(changes) && changes.length > 0) {
+      const waId = changes[0].value?.contacts?.[0]?.wa_id;
+      if (waId) {
+        const getResp = await ddbClient.send(new GetItemCommand({
+          TableName: 'UsersTable',
+          Key: { pk: { S: waId } }
+        }));
+        if (!getResp.Item) {
+          await ddbClient.send(new PutItemCommand({
+            TableName: 'UsersTable',
+            Item: {
+              pk: { S: waId },
+              status: { S: 'freetrial' },
+              credits: { N: '100' },
+              createdAt: { S: new Date().toISOString() }
+            }
+          }));
+          console.log(`New user created: ${waId}`);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error checking/creating user in UsersTable:', err);
   }
 
   // Determine which queue to use based on message content (supports Messenger and WhatsApp)

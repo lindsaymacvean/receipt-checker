@@ -92,6 +92,12 @@ Resources:
             QueueName: !GetAtt ImageProcessingQueue.QueueName
         - SQSSendMessagePolicy:
             QueueName: !GetAtt TextProcessingQueue.QueueName
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+              Resource: !GetAtt UsersTable.Arn
       Environment:
         Variables:
           IMAGE_PROCESSING_QUEUE_URL: !Ref ImageProcessingQueue
@@ -153,10 +159,12 @@ Resources:
               Action:
                 - secretsmanager:GetSecretValue
               Resource:
-                Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:OpenAISecrets*
+                - Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:OpenAISecrets*
+                - Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:MetaSecrets*
       Environment:
         Variables:
           OPENAI_SECRET_ID: !Ref OpenAISecrets
+          META_SECRET_ID: !Ref MetaSecrets
       Events:
         TextQueueEvent:
           Type: SQS

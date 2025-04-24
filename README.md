@@ -9,6 +9,9 @@ Simple AWS Lambda + API Gateway setup for handling Meta webhooks with CORS suppo
 - An API Gateway REST API (`MetaWebhookApi`) with:
   - POST `/meta_webhook` endpoint integrated with the Lambda.
   - OPTIONS method for CORS preflight (Allow-Origin: `*`).
+  - On POST, new WhatsApp users are auto-onboarded into `UsersTable` with a free trial (100 credits) and sent a welcome message.
+
+  - (Other routes remain unchanged)
 - A single SAM API Gateway deployed with a configurable `StageName` (default `prod`), allowing preprod or prod stages per deployment.
 
 ## Repository Structure
