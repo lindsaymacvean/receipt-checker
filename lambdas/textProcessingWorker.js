@@ -225,7 +225,7 @@ exports.handler = async (event) => {
           // Retrieve user currency for formatting
           let userCurrency = 'USD';
           try {
-            const userKey = { pk: { S: waId }, sk: { S: 'METADATA' } };
+            const userKey = { pk: { S: waId }, sk: { S: waId } };
             const userResp = await ddbClient.send(new GetItemCommand({ TableName: 'UsersTable', Key: userKey }));
             if (userResp.Item?.currency?.S) {
               userCurrency = userResp.Item.currency.S;

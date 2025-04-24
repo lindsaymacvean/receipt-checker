@@ -57,8 +57,8 @@ exports.handler = async (event) => {
     if (Array.isArray(changes) && changes.length > 0) {
       const waId = changes[0].value?.contacts?.[0]?.wa_id;
       if (waId) {
-        // Use composite key: pk=waId, sk=METADATA
-        const userKey = { pk: { S: waId }, sk: { S: 'METADATA' } };
+        // Use composite key: pk=waId, sk=waId (phone number as sort key)
+        const userKey = { pk: { S: waId }, sk: { S: waId } };
         const getResp = await ddbClient.send(new GetItemCommand({
           TableName: 'UsersTable',
           Key: userKey

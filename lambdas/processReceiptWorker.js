@@ -29,7 +29,6 @@ exports.handler = async (event) => {
       const dateMessageId = `MESSAGE#${new Date().toISOString()}#${messageId}`;
 
       // TODO: check if user exists already and has enough credits
-      // TODO: If user does not exist, create a new user in the database and send a welcome message
       // TODO: if not enough credits and new, send a message to the user to sign up
       // TODO: if not enough credits and existing, send a message to the user to top up
       // TODO: start a heartbeat 3 min delay to an sqs queue
@@ -41,6 +40,9 @@ exports.handler = async (event) => {
           Item: {
             pk: { S: `USER#${waId}` },
             sk: { S: dateMessageId },
+            // Reference back to UsersTable keys
+            userPk: { S: waId },
+            userSk: { S: waId },
             status: { S: 'RECEIVED' },
             rawMessage: { S: JSON.stringify(messageBody) }
           }
@@ -158,6 +160,9 @@ exports.handler = async (event) => {
           Item: {
             pk: { S: receiptPk },
             sk: { S: receiptSk },
+            // Reference back to UsersTable keys
+            userPk: { S: waId },
+            userSk: { S: waId },
             merchant: { S: merchant },
             total: { N: total.toString() },
             txDate: { S: txDate || 'UNKNOWN' },
