@@ -222,6 +222,18 @@ exports.handler = async (event) => {
         // Stage 3: Generate user-facing response
         let finalReply;
         try {
+          // Retrieve user currency for formatting
+          let userCurrency = 'USD';
+          try {
+            const userKey = { pk: { S: waId }, sk: { S: 'METADATA' } };
+            const userResp = await ddbClient.send(new GetItemCommand({ TableName: 'UsersTable', Key: userKey }));
+            if (userResp.Item?.currency?.S) {
+              userCurrency = userResp.Item.currency.S;
+            }
+          } catch (err) {
+            console.error('Error fetching user currency, defaulting to USD', err);
+          }
+          const systemPrompt = `You are a helpful assistant that summarizes receipt data in a friendly, conversational tone. Present all monetary values using the ${userCurrency} currency.`;
           const cleanedItems = items.map(({ rawJson, ...rest }) => rest);
           const respondResp = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -232,7 +244,7 @@ exports.handler = async (event) => {
             body: JSON.stringify({
               model: 'gpt-4',
               messages: [
-                { role: 'system', content: 'You are a helpful assistant that summarizes receipt data in a friendly, conversational tone.' },
+                { role: 'system', content: systemPrompt },
                 { role: 'user', content: `Here is the user question: "${content}"\nHere are the results from the database: ${JSON.stringify(cleanedItems)}\nWrite a friendly, conversational summary.` }
               ]
             })
