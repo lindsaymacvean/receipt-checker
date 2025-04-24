@@ -9,6 +9,8 @@ const { DynamoDBClient, QueryCommand, GetItemCommand, UpdateItemCommand } = requ
 const ddbClient = new DynamoDBClient();
 // Shared error handler from Lambda layer
 const { handleError } = require('errorHandler');
+// Centralized OpenAI prompt templates
+const prompts = require('./prompts');
 
 exports.handler = async (event) => {
   const openaiSecretId = process.env.OPENAI_SECRET_ID;
@@ -97,19 +99,7 @@ exports.handler = async (event) => {
             body: JSON.stringify({
               model: 'gpt-3.5-turbo',
               messages: [
-                { role: 'system', content: `
-                  You are a classifier for a receipt assistant.
-                  
-                  First, classify the user's message as one of:
-                  - finance_query
-                  - system_command
-                  - irrelevant
-                  
-                  Then, answer: could the request benefit from a visual/graph/summary that could be shown as a chart?
-                  
-                  Return JSON like:
-                  { "category": "finance_query", "needsGraph": true }
-                  ` },
+                { role: 'system', content: prompts.triagePrompt },
                 { role: 'user', content }
               ]
             })
@@ -156,14 +146,7 @@ exports.handler = async (event) => {
         try {
           // Build a system prompt with the actual user partition key value
           const pkValue = `USER#${waId}`; // Replace <wa_id> with actual value
-          const systemPrompt = `
-            Translate the user question into a DynamoDB QueryCommand parameter object.
-            The table is "ReceiptsTable" with primary key "pk" and sort key "sk".
-            The "pk" is of the form "${pkValue}".
-            The "sk" starts with "RECEIPT#<ISO date>#<amount>", e.g., "RECEIPT#2025-04-24T13:15:35.264Z#20.99".
-            Use KeyConditionExpression "pk = :pk".
-            Respond only with valid JSON for the QueryCommand parameters.
-          `;
+          const systemPrompt = prompts.queryPlanPrompt(pkValue);
           const queryResp = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -233,7 +216,7 @@ exports.handler = async (event) => {
           } catch (err) {
             console.error('Error fetching user currency, defaulting to USD', err);
           }
-          const systemPrompt = `You are a helpful assistant that summarizes receipt data in a friendly, conversational tone. Present all monetary values using the ${userCurrency} currency.`;
+          const systemPrompt = prompts.summaryPrompt(userCurrency);
           const cleanedItems = items.map(({ rawJson, ...rest }) => rest);
           const respondResp = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -245,7 +228,7 @@ exports.handler = async (event) => {
               model: 'gpt-4',
               messages: [
                 { role: 'system', content: systemPrompt },
-                { role: 'user', content: `Here is the user question: "${content}"\nHere are the results from the database: ${JSON.stringify(cleanedItems)}\nWrite a friendly, conversational summary.` }
+                { role: 'user', content: prompts.summaryUserMessage(content, cleanedItems) }
               ]
             })
           });
