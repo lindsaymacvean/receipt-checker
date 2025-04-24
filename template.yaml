@@ -187,8 +187,10 @@ Resources:
             - Effect: Allow
               Action:
                 - dynamodb:Query
+                - dynamodb:GetItem
               Resource:
                 - !GetAtt ReceiptsTable.Arn
+                - !GetAtt UsersTable.Arn
       Environment:
         Variables:
           OPENAI_SECRET_ID: !Ref OpenAISecrets
