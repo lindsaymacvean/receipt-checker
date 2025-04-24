@@ -97,7 +97,19 @@ exports.handler = async (event) => {
             body: JSON.stringify({
               model: 'gpt-3.5-turbo',
               messages: [
-                { role: 'system', content: 'You are a classifier for a personal receipt assistant. Categorize the user message into one of: finance_query, system_command, or irrelevant.' },
+                { role: 'system', content: `
+                  You are a classifier for a receipt assistant.
+                  
+                  First, classify the user's message as one of:
+                  - finance_query
+                  - system_command
+                  - irrelevant
+                  
+                  Then, answer: could the request benefit from a visual/graph/summary that could be shown as a chart?
+                  
+                  Return JSON like:
+                  { "category": "finance_query", "needsGraph": true }
+                  ` },
                 { role: 'user', content }
               ]
             })
