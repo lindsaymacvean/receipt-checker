@@ -168,6 +168,12 @@ Resources:
               Resource:
                 - Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:OpenAISecrets*
                 - Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:MetaSecrets*
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+              Resource:
+                - !GetAtt ReceiptsTable.Arn
       Environment:
         Variables:
           OPENAI_SECRET_ID: !Ref OpenAISecrets

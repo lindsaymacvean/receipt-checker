@@ -4,6 +4,9 @@
 
 const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 const secretsClient = new SecretsManagerClient();
+// DynamoDB client for querying receipt data
+const { DynamoDBClient, QueryCommand } = require('@aws-sdk/client-dynamodb');
+const ddbClient = new DynamoDBClient();
 
 exports.handler = async (event) => {
   const openaiSecretId = process.env.OPENAI_SECRET_ID;
@@ -80,9 +83,10 @@ exports.handler = async (event) => {
           continue;
         }
         console.log("📥 Processing text message:", content);
-        // Send to OpenAI API
+        // Stage 1: Triage - classify the message
+        let category;
         try {
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          const triageResp = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${openaiApiKey}`,
@@ -90,17 +94,28 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify({
               model: 'gpt-3.5-turbo',
-              messages: [{ role: 'user', content }]
+              messages: [
+                { role: 'system', content: 'You are a classifier for a personal receipt assistant. Categorize the user message into one of: finance_query, system_command, or irrelevant.' },
+                { role: 'user', content }
+              ]
             })
           });
-          const data = await response.json();
-          console.log('🧠 OpenAI response:', JSON.stringify(data, null, 2));
-          // Send reply back to WhatsApp user
-          const replyContent = data.choices?.[0]?.message?.content;
-          if (replyContent && waId && phoneNumberId) {
+          const triageData = await triageResp.json();
+          category = triageData.choices?.[0]?.message?.content.trim().toLowerCase();
+          console.log('🔍 Triage category:', category);
+        } catch (err) {
+          console.error('❌ Error during triage classification', err);
+          continue;
+        }
+
+        // If not a finance query, send a friendly default reply and skip further processing
+        if (category !== 'finance_query') {
+          console.log(`Category is '${category}', sending default non-finance reply.`);
+          const defaultReply = "This does not appear to be a finance query, try asking a question about your receipts like 'How much did I spend on pet food last week?'";
+          if (waId && phoneNumberId) {
             try {
               const whatsappUrl = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
-              const sendResp = await fetch(whatsappUrl, {
+              await fetch(whatsappUrl, {
                 method: 'POST',
                 headers: {
                   'Authorization': `Bearer ${metaAccessToken}`,
@@ -109,19 +124,103 @@ exports.handler = async (event) => {
                 body: JSON.stringify({
                   messaging_product: 'whatsapp',
                   to: waId,
-                  text: { body: replyContent }
+                  text: { body: defaultReply }
                 })
               });
-              const sendData = await sendResp.json();
-              console.log('✅ WhatsApp reply sent:', JSON.stringify(sendData, null, 2));
             } catch (err) {
-              console.error('❌ Error sending WhatsApp reply', err);
+              console.error('❌ Error sending default non-finance reply', err);
             }
           } else {
-            console.warn('No replyContent or missing waId/phoneNumberId, skipping send');
+            console.warn('No waId or phoneNumberId for sending default non-finance reply');
           }
+          continue;
+        }
+
+        // Stage 2: Generate DynamoDB query plan
+        let queryParams;
+        try {
+          const queryResp = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${openaiApiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: 'gpt-3.5-turbo',
+              messages: [
+                { role: 'system', content: 'Translate the user question into a DynamoDB QueryCommand parameter object. Use the ReceiptsTable and specify KeyConditionExpression and ExpressionAttributeValues as needed. Respond with only the JSON object.' },
+                { role: 'user', content }
+              ]
+            })
+          });
+          const queryData = await queryResp.json();
+          const queryText = queryData.choices?.[0]?.message?.content;
+          console.log('📋 Query plan (raw):', queryText);
+          queryParams = JSON.parse(queryText);
         } catch (err) {
-          console.error('❌ Error calling OpenAI API', err);
+          console.error('❌ Error generating or parsing query plan', err);
+          continue;
+        }
+
+        // Execute the DynamoDB query
+        let items = [];
+        try {
+          const result = await ddbClient.send(new QueryCommand(queryParams));
+          items = result.Items || [];
+          console.log('📊 DynamoDB query returned items:', JSON.stringify(items, null, 2));
+        } catch (err) {
+          console.error('❌ Error executing DynamoDB query', err);
+          continue;
+        }
+
+        // Stage 3: Generate user-facing response
+        let finalReply;
+        try {
+          const respondResp = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${openaiApiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: 'gpt-4',
+              messages: [
+                { role: 'system', content: 'You are a helpful assistant that summarizes receipt data in a friendly, conversational tone.' },
+                { role: 'user', content: `Here is the user question: "${content}"\nHere are the results from the database: ${JSON.stringify(items)}\nWrite a friendly, conversational summary.` }
+              ]
+            })
+          });
+          const respondData = await respondResp.json();
+          finalReply = respondData.choices?.[0]?.message?.content.trim();
+          console.log('💬 Final reply:', finalReply);
+        } catch (err) {
+          console.error('❌ Error generating final response', err);
+          continue;
+        }
+
+        // Send reply back to WhatsApp user
+        if (finalReply && waId && phoneNumberId) {
+          try {
+            const whatsappUrl = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
+            const sendResp = await fetch(whatsappUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${metaAccessToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                messaging_product: 'whatsapp',
+                to: waId,
+                text: { body: finalReply }
+              })
+            });
+            const sendData = await sendResp.json();
+            console.log('✅ WhatsApp reply sent:', JSON.stringify(sendData, null, 2));
+          } catch (err) {
+            console.error('❌ Error sending WhatsApp reply', err);
+          }
+        } else {
+          console.warn('No finalReply or missing waId/phoneNumberId, skipping send');
         }
       }
     } catch (err) {
