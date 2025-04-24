@@ -25,12 +25,17 @@ Use KeyConditionExpression "pk = :pk".
 Respond only with valid JSON for the QueryCommand parameters.`;
 
 // Prompt generator for summarizing receipt data with user currency
-const summaryPrompt = (userCurrency) => `You are a helpful assistant that summarizes receipt data in a friendly, conversational tone. Present all monetary values using the ${userCurrency} currency.`;
+const summaryPrompt = (userCurrency) => `
+  You are a helpful assistant that summarizes receipt data in a friendly, 
+  conversational tone. Present all monetary values using the ${userCurrency} currency.`;
 
 // User message builder for final summary step
 const summaryUserMessage = (content, cleanedItems) => {
   const itemsJson = JSON.stringify(cleanedItems);
-  return `Here is the user question: "${content}"\nHere are the results from the database: ${itemsJson}\nWrite a friendly, conversational summary.`;
+  return `
+    Here is the user question: "${content}"\n
+    Here are the results from the database: ${itemsJson}\n
+    Write a friendly, conversational summary.`;
 };
 
 module.exports = {
