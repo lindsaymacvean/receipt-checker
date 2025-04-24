@@ -6,6 +6,7 @@ const IMAGE_QUEUE_URL = process.env.IMAGE_PROCESSING_QUEUE_URL;
 const TEXT_QUEUE_URL = process.env.TEXT_PROCESSING_QUEUE_URL;
 
 exports.handler = async (event) => {
+  // TODO: secure the webhook with a certificate
   let body;
   try {
     body = JSON.parse(event.body);
