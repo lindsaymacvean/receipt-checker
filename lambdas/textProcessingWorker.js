@@ -140,6 +140,19 @@ exports.handler = async (event) => {
         // Stage 2: Generate DynamoDB query plan (JSON)
         let queryParams;
         try {
+          // Build a system prompt with the actual user partition key value
+          const pkValue = `USER#${waId}`;
+          const systemPrompt = `
+            Translate the user question into a DynamoDB QueryCommand parameter object. 
+            The DynamoDB table is \"ReceiptsTable\" with primary key attribute \"pk\" (partition key) and \"sk\" (sort key). 
+            The partition key value for this user is \"${pkValue}\". 
+            Use KeyConditionExpression \"pk = :pk\" and any additional range conditions on \"sk\" 
+            (e.g., begins_with or BETWEEN) based on the question. 
+            Include ExpressionAttributeValues mapping ":pk" to "${pkValue}" and any other parameter values. 
+            If you need to reference reserved words, also use ExpressionAttributeNames. 
+            Respond with only the JSON object for the QueryCommand parameters 
+            (TableName, KeyConditionExpression, ExpressionAttributeValues, and optional ExpressionAttributeNames), 
+            with valid JSON syntax only.`;
           const queryResp = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -149,7 +162,7 @@ exports.handler = async (event) => {
             body: JSON.stringify({
               model: 'gpt-3.5-turbo',
               messages: [
-                { role: 'system', content: 'Translate the user question into a DynamoDB QueryCommand parameter object. Use ReceiptsTable, specify KeyConditionExpression and ExpressionAttributeValues appropriately. Respond with only valid JSON (double-quoted property names and string values), without any code fences or extra text.' },
+                { role: 'system', content: systemPrompt },
                 { role: 'user', content }
               ]
             })
