@@ -5,7 +5,7 @@
 const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 const secretsClient = new SecretsManagerClient();
 // DynamoDB client for querying receipt data
-const { DynamoDBClient, QueryCommand } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBClient, QueryCommand, GetItemCommand, UpdateItemCommand } = require('@aws-sdk/client-dynamodb');
 const ddbClient = new DynamoDBClient();
 // Shared error handler from Lambda layer
 const { handleError } = require('errorHandler');
@@ -210,6 +210,7 @@ exports.handler = async (event) => {
         // Stage 3: Generate user-facing response
         let finalReply;
         try {
+          const cleanedItems = items.map(({ rawJson, ...rest }) => rest);
           const respondResp = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -220,7 +221,7 @@ exports.handler = async (event) => {
               model: 'gpt-4',
               messages: [
                 { role: 'system', content: 'You are a helpful assistant that summarizes receipt data in a friendly, conversational tone.' },
-                { role: 'user', content: `Here is the user question: "${content}"\nHere are the results from the database: ${JSON.stringify(items)}\nWrite a friendly, conversational summary.` }
+                { role: 'user', content: `Here is the user question: "${content}"\nHere are the results from the database: ${JSON.stringify(cleanedItems)}\nWrite a friendly, conversational summary.` }
               ]
             })
           });
@@ -229,9 +230,33 @@ exports.handler = async (event) => {
           console.log('💬 Final reply:', finalReply);
         } catch (err) {
           console.error('❌ Error generating final response', err);
+          // Notify user of the error via WhatsApp with a unique error ID
+          await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
           continue;
         }
 
+        // Update conversation history in DynamoDB
+        try {
+          const pkKey = `USER#${waId}`;
+          const skKey = 'MEMORY';
+          const getResp = await ddbClient.send(new GetItemCommand({
+            TableName: 'ConversationHistoryTable',
+            Key: { pk: { S: pkKey }, sk: { S: skKey } },
+            ProjectionExpression: 'history'
+          }));
+          const existing = getResp.Item?.history?.S || '';
+          const newEntry = `User: ${content}\nAssistant: ${finalReply}`;
+          const combined = existing ? `${existing}\n${newEntry}` : newEntry;
+          const truncated = combined.slice(-1000);
+          await ddbClient.send(new UpdateItemCommand({
+            TableName: 'ConversationHistoryTable',
+            Key: { pk: { S: pkKey }, sk: { S: skKey } },
+            UpdateExpression: 'SET history = :h',
+            ExpressionAttributeValues: { ':h': { S: truncated } }
+          }));
+        } catch (err) {
+          console.error('❌ Error updating conversation history', err);
+        }
         // Send reply back to WhatsApp user
         if (finalReply && waId && phoneNumberId) {
           try {
