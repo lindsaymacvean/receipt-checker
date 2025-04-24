@@ -7,6 +7,8 @@ const secretsClient = new SecretsManagerClient();
 // DynamoDB client for querying receipt data
 const { DynamoDBClient, QueryCommand } = require('@aws-sdk/client-dynamodb');
 const ddbClient = new DynamoDBClient();
+// Shared error handler from Lambda layer
+const { handleError } = require('errorHandler');
 
 exports.handler = async (event) => {
   const openaiSecretId = process.env.OPENAI_SECRET_ID;
@@ -260,6 +262,8 @@ exports.handler = async (event) => {
       }
     } catch (err) {
       console.error("❌ Failed to parse or process message", err);
+      // Notify user of the error via WhatsApp with a unique error ID
+      await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
     }
   }
 };

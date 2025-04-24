@@ -7,15 +7,22 @@ const { DynamoDBClient, PutItemCommand } = require('@aws-sdk/client-dynamodb');
 
 const secretsClient = new SecretsManagerClient();
 const ddbClient = new DynamoDBClient();
+// Error handler layer
+const { handleError } = require('errorHandler');
 
 exports.handler = async (event) => {
   for (const record of event.Records) {
+    // Context for error handling
+    let waId;
+    let phoneNumberId;
+    let accessToken;
     try {
       const messageBody = JSON.parse(record.body);
       console.log("📥 Received SQS message:", JSON.stringify(messageBody, null, 2));
 
-      // Get the user's WhatsApp ID (wa_id) from the message
-      const waId = messageBody.entry?.[0]?.changes?.[0]?.value?.contacts?.[0]?.wa_id;
+      // Get the user's WhatsApp ID (wa_id) and phone number ID for replies
+      waId = messageBody.entry?.[0]?.changes?.[0]?.value?.contacts?.[0]?.wa_id;
+      phoneNumberId = messageBody.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
       if (!waId) throw new Error('Missing wa_id in message');
       const messageId = messageBody.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id;
       if (!messageId) throw new Error('Missing messageId in message');
@@ -55,7 +62,7 @@ exports.handler = async (event) => {
         new GetSecretValueCommand({ SecretId: metaSecretId })
       );
       const metaSecret = JSON.parse(metaSec.SecretString);
-      const accessToken = metaSecret.access_token;
+      accessToken = metaSecret.access_token;
       if (!accessToken || typeof accessToken !== 'string' || !accessToken.startsWith('EAA'))
         throw new Error('Invalid or missing access_token in MetaSecrets');
 
@@ -191,6 +198,7 @@ exports.handler = async (event) => {
 
     } catch (err) {
       console.error("❌ Failed to process SQS record", err);
+      await handleError(err, { waId, phoneNumberId, accessToken });
     }
   }
 };

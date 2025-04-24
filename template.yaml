@@ -87,6 +87,8 @@ Resources:
     Properties:
       CodeUri: lambdas/
       Handler: metaWebhookPostHandler.handler
+      Layers:
+        - !Ref ErrorHandlerLayer
       Policies:
         - SQSSendMessagePolicy:
             QueueName: !GetAtt ImageProcessingQueue.QueueName
@@ -122,6 +124,8 @@ Resources:
     Properties:
       CodeUri: lambdas/
       Handler: processReceiptWorker.handler
+      Layers:
+        - !Ref ErrorHandlerLayer
       Runtime: nodejs18.x
       Timeout: 30
       MemorySize: 128
@@ -154,11 +158,22 @@ Resources:
         App: ReceiptChecker
 
   
+  ErrorHandlerLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: error-handler
+      Description: "Layer for centralized error handling and WhatsApp notifications"
+      ContentUri: layers/errorHandler
+      CompatibleRuntimes:
+        - nodejs18.x
+
   TextProcessingWorker:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: lambdas/
       Handler: textProcessingWorker.handler
+      Layers:
+        - !Ref ErrorHandlerLayer
       Policies:
         - AWSLambdaBasicExecutionRole
         - Statement:

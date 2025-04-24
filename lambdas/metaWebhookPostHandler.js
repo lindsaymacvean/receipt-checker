@@ -4,6 +4,8 @@ const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client
 const sqsClient = new SQSClient();
 // Secrets Manager client for retrieving WhatsApp token
 const secretsClient = new SecretsManagerClient();
+// Error handler layer
+const { handleError } = require('errorHandler');
 
 // SQS queue URLs for image and text processing
 const IMAGE_QUEUE_URL = process.env.IMAGE_PROCESSING_QUEUE_URL;
@@ -13,10 +15,29 @@ const ddbClient = new DynamoDBClient();
 
 exports.handler = async (event) => {
   // TODO: secure the webhook with a certificate
+  // Context for error handling
   let body;
+  let waId;
+  let phoneNumberId;
+  let metaAccessToken;
   try {
     body = JSON.parse(event.body);
     console.log('Parsed body:', JSON.stringify(body, null, 2));
+    // Extract WhatsApp identifiers
+    const entry0 = body.entry?.[0];
+    const changesArr = entry0?.changes;
+    if (Array.isArray(changesArr) && changesArr.length > 0) {
+      waId = changesArr[0].value?.contacts?.[0]?.wa_id;
+      phoneNumberId = changesArr[0].value?.metadata?.phone_number_id;
+    }
+    // Retrieve Meta access token for error notifications
+    try {
+      const sec = await secretsClient.send(new GetSecretValueCommand({ SecretId: process.env.META_SECRET_ID }));
+      const metaSecret = JSON.parse(sec.SecretString);
+      metaAccessToken = metaSecret.access_token;
+    } catch (e) {
+      console.error('Error retrieving META_SECRET for error handler', e);
+    }
   } catch (err) {
     console.error('Failed to parse JSON:', err);
     return {
@@ -91,6 +112,7 @@ exports.handler = async (event) => {
     }
   } catch (err) {
     console.error('Error checking/creating user in UsersTable:', err);
+    await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
   }
 
   // Determine which queue to use based on message content (supports Messenger and WhatsApp)
@@ -129,6 +151,7 @@ exports.handler = async (event) => {
     }
   } catch (err) {
     console.error('Error determining queue URL, defaulting to text queue:', err);
+    await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
     queueUrl = TEXT_QUEUE_URL;
   }
   console.log(`Selected SQS queue URL: ${queueUrl}`);
@@ -143,6 +166,7 @@ exports.handler = async (event) => {
     console.log('Message sent to SQS');
   } catch (err) {
     console.error('Failed to send to SQS:', err);
+    await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
     return {
       statusCode: 500,
       headers: { 'Access-Control-Allow-Origin': '*' },
