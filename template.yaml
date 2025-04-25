@@ -334,6 +334,31 @@ Resources:
         - Key: App
           Value: ReceiptChecker
 
+  # DynamoDB table for mapping company/shop names to spending categories
+  CategoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CategoryTable
+      AttributeDefinitions:
+        - AttributeName: companyName
+          AttributeType: S
+        - AttributeName: category
+          AttributeType: S
+      KeySchema:
+        - AttributeName: companyName
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      GlobalSecondaryIndexes:
+        - IndexName: CategoryIndex
+          KeySchema:
+            - AttributeName: category
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: App
+          Value: ReceiptChecker
+
   # Secrets Manager secret for WhatsApp Cloud API access token
   MetaSecrets:
     Type: AWS::SecretsManager::Secret
