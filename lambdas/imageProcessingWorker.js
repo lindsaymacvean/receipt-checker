@@ -5,6 +5,7 @@
 const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 const { DynamoDBClient, PutItemCommand, UpdateItemCommand, GetItemCommand } = require('@aws-sdk/client-dynamodb');
 const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
+const crypto = require('crypto');
 
 const secretsClient = new SecretsManagerClient();
 const ddbClient = new DynamoDBClient();
@@ -45,7 +46,6 @@ exports.handler = async (event) => {
             sk: { S: dateMessageId },
             // Reference back to UsersTable keys
             userPk: { S: waId },
-            userSk: { S: waId },
             status: { S: 'RECEIVED' },
             rawMessage: { S: JSON.stringify(messageBody) }
           }
@@ -105,8 +105,39 @@ exports.handler = async (event) => {
       if (!mediaResp.ok) throw new Error(`Failed to download media: ${mediaResp.statusText}`);
       const imageBuffer = await mediaResp.arrayBuffer();
 
-      // TODO: check if image is duplicate
+      // Step 2d.1: Check for duplicate image via ImagesTable
+      try {
+        const hash = crypto.createHash('sha256').update(Buffer.from(imageBuffer)).digest('hex');
+        const dupResp = await ddbClient.send(new GetItemCommand({
+          TableName: 'ImagesTable',
+          Key: { imageHash: { S: hash } }
+        }));
+        if (dupResp.Item) {
+          // Duplicate found: notify user and exit
+          if (waId && phoneNumberId && accessToken) {
+            const dupUrl = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
+            await fetch(dupUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                messaging_product: 'whatsapp',
+                to: waId,
+                text: { body: 'You already added that receipt' }
+              })
+            });
+            console.log('✅ Duplicate image receipt notification sent');
+          }
+          return;
+        }
+      } catch (dupErr) {
+        console.error('Error checking duplicate image', dupErr);
+      }
 
+      // TODO: add the image to S3 bucket for backup
+      
       // Step 2e: Send image to Azure OCR (Receipt model)
       const ocrInit = await fetch(`${ocrEndpoint}/formrecognizer/documentModels/prebuilt-receipt:analyze?api-version=2023-07-31`, {
         method: 'POST',
@@ -177,7 +208,6 @@ exports.handler = async (event) => {
             sk: { S: receiptSk },
             // Reference back to UsersTable keys
             userPk: { S: waId },
-            userSk: { S: waId },
             merchant: { S: merchant },
             total: { N: total.toString() },
             txDate: { S: txDate || 'UNKNOWN' },
