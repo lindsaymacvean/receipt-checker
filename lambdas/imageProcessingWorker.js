@@ -1,9 +1,9 @@
-// Lambda: processReceiptWorker.js
+// Lambda: imageProcessingWorker.js
 // Triggered by SQS queue (ImageProcessingQueue)
 // Goal: Log incoming WhatsApp messages, and later process receipts
 
 const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
-const { DynamoDBClient, PutItemCommand, UpdateItemCommand } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBClient, PutItemCommand, UpdateItemCommand, GetItemCommand } = require('@aws-sdk/client-dynamodb');
 const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
 
 const secretsClient = new SecretsManagerClient();
@@ -151,8 +151,20 @@ exports.handler = async (event) => {
 
       // TODO: check if receipt is low confidence and send message to user
       // TODO: check if receipt data is bayesian (see arch) likely duplicate and send message to user
-      // TODO: Lookup category from Vendor
-      // TODO: If no category then try to detect using brave api
+      // Lookup category from CategoryTable or use placeholder
+      let category = 'UNKNOWN';
+      try {
+        const catKey = { companyName: { S: merchant } };
+        const catResp = await ddbClient.send(new GetItemCommand({
+          TableName: 'CategoryTable',
+          Key: catKey
+        }));
+        if (catResp.Item?.category?.S) {
+          category = catResp.Item.category.S;
+        }
+      } catch (catErr) {
+        console.error('Error fetching category for merchant', merchant, catErr);
+      }
 
       // Step 2f: Write structured OCR result to ReceiptsTable
       const receiptPk = `USER#${waId}`;
@@ -172,7 +184,7 @@ exports.handler = async (event) => {
             txTime: { S: txTime || 'UNKNOWN' },
             items: { S: items.join('\n') },
             imageId: { S: imageId },
-            category: { S: 'UNKNOWN' },
+            category: { S: category },
             rawJson: { S: JSON.stringify(ocrResult) }
           }
         })
