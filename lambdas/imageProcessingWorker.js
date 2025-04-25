@@ -32,10 +32,7 @@ exports.handler = async (event) => {
       if (!messageId) throw new Error('Missing messageId in message');
       const dateMessageId = `MESSAGE#${new Date().toISOString()}#${messageId}`;
 
-      // TODO: check if user exists already and has enough credits
-      // TODO: if not enough credits and new, send a message to the user to sign up
-      // TODO: if not enough credits and existing, send a message to the user to top up
-      // TODO: start a heartbeat 3 min delay to an sqs queue
+      // TODO: start a heartbeat to an sqs queue to tell the user that images have been processed
 
       // Step 1: Log the received message into MessagesTable
       await ddbClient.send(
@@ -113,7 +110,7 @@ exports.handler = async (event) => {
           Key: { imageHash: { S: hash } }
         }));
         if (dupResp.Item) {
-          // Duplicate found: notify user and exit
+          // Duplicate found: notify user and exit early
           if (waId && phoneNumberId && accessToken) {
             const dupUrl = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
             await fetch(dupUrl, {
@@ -132,12 +129,22 @@ exports.handler = async (event) => {
           }
           return;
         }
+        // New image: record hash in ImagesTable
+        await ddbClient.send(new PutItemCommand({
+          TableName: 'ImagesTable',
+          Item: {
+            imageHash: { S: hash },
+            messagePk: { S: `USER#${waId}` },
+            messageSk: { S: dateMessageId }
+          }
+        }));
+        console.log('✅ Recorded new image hash to ImagesTable');
       } catch (dupErr) {
-        console.error('Error checking duplicate image', dupErr);
+        console.error('Error checking/recording image hash', dupErr);
       }
 
       // TODO: add the image to S3 bucket for backup
-      
+
       // Step 2e: Send image to Azure OCR (Receipt model)
       const ocrInit = await fetch(`${ocrEndpoint}/formrecognizer/documentModels/prebuilt-receipt:analyze?api-version=2023-07-31`, {
         method: 'POST',

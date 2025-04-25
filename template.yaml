@@ -151,6 +151,7 @@ Resources:
               Resource:
                 - !GetAtt ReceiptsTable.Arn
                 - !GetAtt MessagesTable.Arn
+                - !GetAtt ImagesTable.Arn
             - Effect: Allow
               Action:
                 - dynamodb:GetItem
