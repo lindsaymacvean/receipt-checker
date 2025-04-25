@@ -124,6 +124,10 @@ exports.handler = async (event) => {
             console.warn('No phone_number_id found, cannot send welcome message');
           }
         }
+
+        // TODO: if user exists check has enough credits
+        // TODO: if not enough credits and new, send a message to the user to sign up
+        // TODO: if not enough credits and existing, send a message to the user to top up
       }
     }
   } catch (err) {
