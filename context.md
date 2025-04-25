@@ -47,7 +47,6 @@ This is a serverless, event-driven application hosted on AWS.
 - `lambdas/metaWebhookHandler.js`: handles incoming POST webhooks and logs payloads
 
 ### Infrastructure
-### Infrastructure
 - `template.yaml`:  
   AWS SAM template defining:
   - Two Lambda functions (GET & POST handlers)
@@ -73,11 +72,65 @@ This is a serverless, event-driven application hosted on AWS.
 ---
 
 ## 🧩 Next Planned Features
-- Downloading WhatsApp media using Graph API
-- Sending images to Azure for OCR
-- Storing structured results
-- Chat-based analysis using OpenAI
+1. **metaWebhookPostHandler.js**
+    * Secure the webhook (e.g., with TLS client cert or validation certificate)
+    * Enforce credit checks:
+          • If a user exists, verify they have enough credits
+          • If new and no credits, prompt signup
+          • If existing and out of credits, prompt recharge
+2. **imageProcessingWorker.js**
+    * Backup receipt images to S3
+    * Convert amounts to the user’s currency (currency conversion)
+    * Handle low‐confidence OCR results (alert user for manual review)
+    * Detect likely duplicates via Bayesian logic, notify the user
+    * Update the `ImagesTable` with receipt reference (pk/sk & status)
+    * Populate a summary table (daily/weekly/monthly spend by vendor/category)
+    * Deduct credits per receipt processed
 
 ---
 
-_Last updated: 2025-04-21_
+## 🗂️ Data Model Overview
+
+- **UsersTable**:
+  - `pk`: WhatsApp ID
+  - Attributes: phone number, currency, status, credits
+
+- **ReceiptsTable**:
+  - `pk`: USER#<wa_id>
+  - `sk`: RECEIPT#<timestamp>#<amount>
+  - Attributes: merchant, total, txDate, txTime, items, category, imageId
+
+- **MessagesTable**:
+  - `pk`: USER#<wa_id>
+  - `sk`: MESSAGE#<timestamp>#<messageId>
+  - Attributes: status, raw message, links to receipt
+
+- **ImagesTable**:
+  - `imageHash`: SHA-256 hash of image
+  - Attributes: messagePk, messageSk
+
+- **CategoryTable**:
+  - `companyName`: Company name
+  - Attributes: category
+
+---
+
+## 🔗 External Integrations
+
+- **WhatsApp Cloud API**: receiving incoming messages and sending replies.
+- **Azure Document Intelligence (Form Recognizer)**: OCR for receipt extraction.
+- **OpenAI GPT API**: natural language query understanding and friendly responses.
+- **Brave Search API**: infer merchant details and enrich receipt data if necessary.
+
+---
+
+## 🔒 Security Overview
+
+- API keys and tokens (Meta, Azure, OpenAI, Brave) securely retrieved from **AWS Secrets Manager**.
+- Webhook endpoint validation via Meta challenge-response during setup.
+- Receipt images downloaded using short-lived, authenticated URLs.
+- IAM policies restrict Lambdas to only the resources they require.
+
+---
+
+_Last updated: 2025-04-25_
