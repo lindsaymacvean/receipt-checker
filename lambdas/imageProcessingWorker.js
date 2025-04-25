@@ -6,6 +6,7 @@ const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client
 const { DynamoDBClient, PutItemCommand, UpdateItemCommand, GetItemCommand } = require('@aws-sdk/client-dynamodb');
 const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
 const crypto = require('crypto');
+const { saveReceipt } = require('./utils/receiptService');
 
 const secretsClient = new SecretsManagerClient();
 const ddbClient = new DynamoDBClient();
@@ -194,45 +195,20 @@ exports.handler = async (event) => {
       // TODO: check if receipt is low confidence and send message to user
       // TODO: check if receipt data is bayesian (see arch) likely duplicate and send message to user
 
-      // Lookup category from CategoryTable or use placeholder
-      let category = 'UNKNOWN';
-      try {
-        const catKey = { companyName: { S: merchant } };
-        const catResp = await ddbClient.send(new GetItemCommand({
-          TableName: 'CategoryTable',
-          Key: catKey
-        }));
-        if (catResp.Item?.category?.S) {
-          category = catResp.Item.category.S;
-        }
-      } catch (catErr) {
-        console.error('Error fetching category for merchant', merchant, catErr);
-      }
-
-      // Step 2f: Write structured OCR result to ReceiptsTable
-      const receiptPk = `USER#${waId}`;
-      const receiptSk = `RECEIPT#${new Date().toISOString()}#${total.toString()}`;
-      await ddbClient.send(
-        new PutItemCommand({
-          TableName: 'ReceiptsTable',
-          Item: {
-            pk: { S: receiptPk },
-            sk: { S: receiptSk },
-            // Reference back to UsersTable keys
-            userPk: { S: waId },
-            merchant: { S: merchant },
-            total: { N: total.toString() },
-            txDate: { S: txDate || 'UNKNOWN' },
-            txTime: { S: txTime || 'UNKNOWN' },
-            items: { S: items.join('\n') },
-            imageId: { S: imageId },
-            category: { S: category },
-            rawJson: { S: JSON.stringify(ocrResult) },
-            createdAt: { N: `${Date.now()}` },
-            originalCurrency: { S: currency }
-          }
-        })
-      );
+      // Step 2f: Save structured receipt via helper
+      const { receiptPk, receiptSk } = await saveReceipt({
+        ddbClient,
+        merchant,
+        waId,
+        dateMessageId,
+        total,
+        txDate,
+        txTime,
+        items,
+        imageId,
+        ocrResult,
+        currency
+      });
       console.log('✅ Saved structured receipt to ReceiptsTable');
 
       // Step 2g: link back to MessagesTable and Images Table
