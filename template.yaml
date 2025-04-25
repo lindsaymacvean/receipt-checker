@@ -123,7 +123,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: lambdas/
-      Handler: processReceiptWorker.handler
+      Handler: imageProcessingWorker.handler
       Layers:
         - !Ref ErrorHandlerLayer
       Runtime: nodejs18.x
