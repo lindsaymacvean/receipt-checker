@@ -32,8 +32,6 @@ exports.handler = async (event) => {
       if (!messageId) throw new Error('Missing messageId in message');
       const dateMessageId = `MESSAGE#${new Date().toISOString()}#${messageId}`;
 
-      // TODO: start a heartbeat to an sqs queue to tell the user that images have been processed
-
       // Step 1: Log the received message into MessagesTable
       await ddbClient.send(
         new PutItemCommand({
@@ -135,7 +133,10 @@ exports.handler = async (event) => {
           Item: {
             imageHash: { S: hash },
             messagePk: { S: `USER#${waId}` },
-            messageSk: { S: dateMessageId }
+            messageSk: { S: dateMessageId },
+            createdAt: { N: `${Date.now()}` },
+            whatsappImageId: { S: imageId },
+            userPk: { S: waId }
           }
         }));
         console.log('✅ Recorded new image hash to ImagesTable');
@@ -177,8 +178,11 @@ exports.handler = async (event) => {
       const f = doc.fields;
       const merchant = f.MerchantName?.valueString || 'UNKNOWN';
       const total = f.Total?.valueNumber || 0;
+      const currency = f.Total?.valueCurrency || 'UNKNOWN';
       const txDate = f.TransactionDate?.valueDate || null;
       const txTime = f.TransactionTime?.valueTime || null;
+
+      // TODO: convert amounts to the users currency
 
       const items = (f.Items?.valueArray || []).map(item => {
         const desc = item.valueObject?.Description?.valueString || '';
@@ -189,6 +193,7 @@ exports.handler = async (event) => {
 
       // TODO: check if receipt is low confidence and send message to user
       // TODO: check if receipt data is bayesian (see arch) likely duplicate and send message to user
+
       // Lookup category from CategoryTable or use placeholder
       let category = 'UNKNOWN';
       try {
@@ -222,13 +227,15 @@ exports.handler = async (event) => {
             items: { S: items.join('\n') },
             imageId: { S: imageId },
             category: { S: category },
-            rawJson: { S: JSON.stringify(ocrResult) }
+            rawJson: { S: JSON.stringify(ocrResult) },
+            createdAt: { N: `${Date.now()}` },
+            originalCurrency: { S: currency }
           }
         })
       );
       console.log('✅ Saved structured receipt to ReceiptsTable');
 
-      // Step 2g: Optionally link back to MessagesTable
+      // Step 2g: link back to MessagesTable and Images Table
       await ddbClient.send(
         new UpdateItemCommand({
           TableName: 'MessagesTable',
@@ -249,6 +256,8 @@ exports.handler = async (event) => {
         })
       );
       console.log('Linked receipt to message in MessagesTable');
+
+      // TODO: update the imagesTable with the receipt pk/sk and status
 
       // Step 2h: Send heartbeat message to HeartbeatQueue
       if (process.env.HEARTBEAT_QUEUE_URL) {
