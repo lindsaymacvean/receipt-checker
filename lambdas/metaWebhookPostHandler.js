@@ -148,6 +148,15 @@ exports.handler = async (event) => {
         messages = changes[0].value?.messages || [];
       }
     }
+    // 👉 NEW: If still no messages, exit early
+    if (!messages || messages.length === 0) {
+      console.log('No messages found, skipping processing.');
+      return {
+        statusCode: 200,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ message: 'No actionable message found, ignored.' })
+      };
+    }
     // Choose queue based on first message type
     if (Array.isArray(messages) && messages.length > 0) {
       const msg = messages[0] || {};
