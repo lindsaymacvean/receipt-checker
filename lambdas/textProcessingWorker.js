@@ -10,7 +10,7 @@ const ddbClient = new DynamoDBClient();
 // Shared error handler from Lambda layer
 const { handleError } = require('errorHandler');
 // Centralized OpenAI prompt templates
-const prompts = require('./prompts');
+const prompts = require('./utils/prompts');
 
 exports.handler = async (event) => {
   const openaiSecretId = process.env.OPENAI_SECRET_ID;

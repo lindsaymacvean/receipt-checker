@@ -114,7 +114,7 @@ https://<CustomDomainName>/${StageName}/meta_webhook
 ```
 
 ## Post-Deployment Configuration
-After deploying the stack, you must populate three Secrets Manager secrets: `MetaSecrets`, `AzureSecrets`, and `OpenAISecrets`.
+After deploying the stack, you must populate four Secrets Manager secrets: `MetaSecrets`, `AzureSecrets`, `OpenAISecrets`, and `BraveSecrets`.
 
 To set your WhatsApp system user token in MetaSecrets:
 ```bash
@@ -138,6 +138,13 @@ To set your OpenAI API key for the text processing worker:
 aws secretsmanager put-secret-value \
   --secret-id OpenAISecrets \
   --secret-string '{"openai_api_key":"YOUR_OPENAI_API_KEY"}'
+```
+  
+To set your Brave API key for merchant categorization:
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id BraveSecrets \
+  --secret-string '{"brave_api_key":"YOUR_BRAVE_API_KEY"}'
 ```
 
 Alternatively, you can update these secrets via the AWS Console under Secrets Manager.

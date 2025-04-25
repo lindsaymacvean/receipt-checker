@@ -6,7 +6,7 @@ const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client
 const { DynamoDBClient, PutItemCommand, UpdateItemCommand, GetItemCommand } = require('@aws-sdk/client-dynamodb');
 const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
 const crypto = require('crypto');
-const { saveReceipt } = require('./utils/receiptService');
+const { saveReceipt } = require('./utils/saveReceiptService');
 
 const secretsClient = new SecretsManagerClient();
 const ddbClient = new DynamoDBClient();
