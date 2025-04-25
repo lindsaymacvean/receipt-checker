@@ -359,6 +359,22 @@ Resources:
         - Key: App
           Value: ReceiptChecker
 
+  # DynamoDB table for tracking seen image hashes (deduplication lookup)
+  ImagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ImagesTable
+      AttributeDefinitions:
+        - AttributeName: imageHash
+          AttributeType: S
+      KeySchema:
+        - AttributeName: imageHash
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: App
+          Value: ReceiptChecker
+
   # Secrets Manager secret for WhatsApp Cloud API access token
   MetaSecrets:
     Type: AWS::SecretsManager::Secret
