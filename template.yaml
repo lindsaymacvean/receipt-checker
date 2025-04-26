@@ -116,6 +116,7 @@ Resources:
             - Effect: Allow
               Action:
                 - dynamodb:PutItem
+                - dynamodb:UpdateItem
               Resource:
                 - !GetAtt ReceiptsTable.Arn
                 - !GetAtt MessagesTable.Arn
