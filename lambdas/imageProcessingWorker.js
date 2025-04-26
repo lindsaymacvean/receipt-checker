@@ -7,6 +7,7 @@ const { DynamoDBClient, PutItemCommand, UpdateItemCommand, GetItemCommand } = re
 const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
 const crypto = require('crypto');
 const { saveReceipt } = require('./utils/saveReceiptService');
+const { inferCurrency, isValidReceipt } = require('./utils/receiptOCRHelperFunctions');
 
 const secretsClient = new SecretsManagerClient();
 const ddbClient = new DynamoDBClient();
@@ -179,7 +180,7 @@ exports.handler = async (event) => {
       const f = doc.fields;
       const merchant = f.MerchantName?.valueString || 'UNKNOWN';
       const total = f.Total?.valueNumber || 0;
-      const currency = f.Total?.valueCurrency || 'UNKNOWN';
+      const currency = inferCurrency(ocrResult.analyzeResult);
       const txDate = f.TransactionDate?.valueDate || null;
       const txTime = f.TransactionTime?.valueTime || null;
 
@@ -192,7 +193,25 @@ exports.handler = async (event) => {
         return `${qty} x ${desc} @ ${price.toFixed(2)}`;
       });
 
-      // TODO: check if receipt is low confidence and send message to user
+      // Check receipt confidence using helper; if low, notify user and exit
+      if (!isValidReceipt(ocrResult.analyzeResult)) {
+        const lowConfUrl = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
+        await fetch(lowConfUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: waId,
+            context: { message_id: messageId },
+            text: { body: 'Sorry, I could not detect a receipt in that picture. Please try with a clearer image.' }
+          })
+        });
+        console.log('✅ Low-confidence receipt notification sent');
+        return;
+      }
       // TODO: check if receipt data is bayesian (see arch) likely duplicate and send message to user
 
       // Step 2f: Save structured receipt via helper
