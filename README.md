@@ -164,6 +164,7 @@ Alternatively, you can use the included `teardown.sh` script to target a specifi
 - Reconcilliation with bank/credit card statements
 - Admin dashboard
 - 'Find it cheaper' mobile app
+- Full test strategy, see 'test/context.md'
 
 ---
 
