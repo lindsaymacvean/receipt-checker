@@ -98,7 +98,7 @@ Resources:
           META_SECRET_ID: !Ref MetaSecrets
           AZURE_SECRET_ID: !Ref AzureSecrets
           HEARTBEAT_QUEUE_URL: !Ref HeartbeatQueue
-          SEARCH_SECRET_ID: !Ref SearchSecrets
+          BRAVE_SECRET_ID: !Ref BraveSecrets
           OPENAI_SECRET_ID: !Ref OpenAISecrets
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -111,7 +111,7 @@ Resources:
               Resource:
                 - Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:MetaSecrets*
                 - Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:AzureSecrets*
-                - Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:SearchSecrets*
+                - Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:BraveSecrets*
                 - Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:OpenAISecrets*
             - Effect: Allow
               Action:
@@ -405,12 +405,12 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
   # Secrets Manager secret for Search API key
-  SearchSecrets:
+  BraveSecrets:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: SearchSecrets
-      Description: "Stores the API key for Search"
-      SecretString: '{"search_api_key":"YOUR_SEARCH_API_KEY"}'
+      Name: BraveSecrets
+      Description: "Stores the API key for Brave"
+      SecretString: '{"brave_api_key":"YOUR_BRAVE_API_KEY"}'
       Tags:
         - Key: App
           Value: ReceiptChecker
