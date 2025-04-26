@@ -86,6 +86,7 @@ exports.handler = async (event) => {
             Item: newUser
           }));
           console.log(`New user created: ${waId}`);
+
           // Send welcome message to the new WhatsApp user
           const phoneNumberId = changes[0].value?.metadata?.phone_number_id;
           if (phoneNumberId) {
@@ -100,7 +101,7 @@ exports.handler = async (event) => {
               if (isImageMessage) {
                 welcomeText = 'Thanks for the image! We\'ve queued your receipt. Feel free to send me another one or ask me a question about your spending.';
               } else {
-                welcomeText = 'Welcome to ReceiptChecker! Ok lets get started. Send us a photo of a receipt to get started.';
+                welcomeText = 'Welcome to ReceiptChecker! Ok lets get started. Try sending us a photo of a receipt.';
               }
               const whatsappUrl = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
               const sendResp = await fetch(whatsappUrl, {
@@ -117,18 +118,31 @@ exports.handler = async (event) => {
               });
               const sendData = await sendResp.json();
               console.log('✅ Welcome message sent:', JSON.stringify(sendData, null, 2));
+              if (!isImageMessage) {
+                // If no image then nothing else to do
+                console.log('New user and no image message, so exiting early');
+                return {
+                  statusCode: 200,
+                  headers: { 'Access-Control-Allow-Origin': '*' },
+                  body: JSON.stringify({ message: 'Image message received, queued for processing.' })
+                };
+              }
             } catch (err) {
               console.error('❌ Error sending welcome message', err);
             }
           } else {
             console.warn('No phone_number_id found, cannot send welcome message');
           }
+        } else {
+          console.log(`This is an existing user: ${waId}`);
         }
 
         // TODO: if user exists check has enough credits
         // TODO: if not enough credits and new, send a message to the user to sign up
         // TODO: if not enough credits and existing, send a message to the user to top up
+
       }
+
     }
   } catch (err) {
     console.error('Error checking/creating user in UsersTable:', err);
