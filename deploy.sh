@@ -78,4 +78,37 @@ sam deploy \
   --no-fail-on-empty-changeset \
   --parameter-overrides $PARAM_OVERRIDES
 
-echo "Deployment complete."
+echo "Deployment of stack '$STACK_NAME' complete."
+
+if [ "$CREATE_CUSTOM_DOMAIN" == "true" ]; then
+  echo "You should create a custom domain in the AWS console...
+  # ITS REALLY HARD TO DO THIS IN SAM EASIER TO JUST DO IT MANUALLY
+  # echo "Deploying custom domain CloudFormation template..."
+
+  # # Fetch MetaWebhookApi ID
+  # echo "Fetching MetaWebhookApi ID..."
+  # API_ID=$(aws cloudformation describe-stacks \
+  #   --stack-name "$STACK_NAME" \
+  #   --region "$REGION" \
+  #   --query "Stacks[0].Outputs[?OutputKey=='MetaWebhookApiId'].OutputValue" \
+  #   --output text)
+
+  # if [ -z "$API_ID" ] || [ "$API_ID" == "None" ]; then
+  #   echo "❌ Error: Could not fetch MetaWebhookApi ID. Check if output MetaWebhookApiId exists in template.yaml."
+  #   exit 1
+  # fi
+
+  # echo "✅ MetaWebhookApi ID fetched: $API_ID"
+  
+  # aws cloudformation deploy \
+  #   --template-file cloudFormationTemplates/custom-domain.yaml \
+  #   --stack-name MetaWebhookCustomDomainStack \
+  #   --capabilities CAPABILITY_IAM \
+  #   --region "$REGION" \
+  #   --profile "$PROFILE" \
+  #   --parameter-overrides \
+  #   ApiGatewayRestApiId="$API_ID" \
+  #   CustomDomainName=$CUSTOM_DOMAIN_NAME \
+  #   CertificateArn=$CERTIFICATE_ARN
+  # echo "Custom domain deployment complete."
+fi

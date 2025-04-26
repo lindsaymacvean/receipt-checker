@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Custom Domain Mapping for MetaWebhook API"
+
+Parameters:
+  ApiGatewayRestApiId:
+    Type: String
+  CustomDomainName:
+    Type: String
+    Default: receipt-api.ukbennettinnovations.com
+    Description: Custom domain for the API
+  CertificateArn:
+    Type: String
+    Description: ACM certificate ARN for the custom domain
+
+Resources:
+  CustomDomainNameResource:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: !Ref CustomDomainName
+      RegionalCertificateArn: !Ref CertificateArn
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+  
+  CustomBasePathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      DomainName: !Ref CustomDomainName
+      RestApiId: !Ref ApiGatewayRestApiId
+      Stage: prod
+      BasePath: ''
+
+Outputs:
+  DomainName:
+    Value: !Ref CustomDomainName

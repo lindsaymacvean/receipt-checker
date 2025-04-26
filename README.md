@@ -144,6 +144,7 @@ Alternatively, you can use the included `teardown.sh` script to target a specifi
 - **Webhook not triggering?** Check Meta app settings and webhook subscription URL.
 - **CloudFormation errors?** Validate templates manually with `cfn-lint` and `aws cloudformation validate-template`.
 - **OCR failures?** Verify Azure Form Recognizer configuration.
+- If deleting the entire stack (e.g. starting again), you will need to delete the custom comain link in apigateway and force delete the secrets (because otherwise it takes 7 days)
 
 ## Future Plans
 
