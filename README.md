@@ -74,6 +74,15 @@ Deploy to production (`main` branch):
 
 Outputs will show the deployed endpoint URL.
 
+#### Manual Step after first Deployment
+- After deploying the SAM stack:
+  - Navigate to API Gateway > Custom Domains.
+  - Create a custom domain (receipt-api.ukbennettinnovations.com).
+  - Add a Base Path Mapping:
+    - API: MetaWebhookApi
+    - Stage: prod
+    - Path: (empty)
+
 ### Testing
 
 Test deployed endpoints:
