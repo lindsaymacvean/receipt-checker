@@ -120,6 +120,7 @@ Secrets required:
 - `AzureSecrets`: Azure OCR endpoint/key
 - `OpenAISecrets`: OpenAI API key
 - `BraveSecrets`: Brave Search API key
+- `ExchangeRateSecrets` : Exchange Rate API key
 
 Stored securely in AWS Secrets Manager.
 

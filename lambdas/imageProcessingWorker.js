@@ -13,11 +13,23 @@ const { inferCurrency, isValidReceipt } = require('./utils/receiptOCRHelperFunct
  * Returns how many units of toCurrency equal 1 unit of fromCurrency.
  */
 async function getExchangeRate(fromCurrency, toCurrency) {
-  const url = `https://api.exchangerate.host/convert?from=${fromCurrency}&to=${toCurrency}`;
+  const secretId = process.env.EXCHANGE_RATE_SECRET_ID;
+  if (!secretId) throw new Error('Missing EXCHANGE_RATE_SECRET_ID env var');
+  // Retrieve API key for exchange rate service
+  const secResp = await secretsClient.send(
+    new GetSecretValueCommand({ SecretId: secretId })
+  );
+  const sec = JSON.parse(secResp.SecretString || '{}');
+  const apiKey = sec.api_key;
+  if (!apiKey) throw new Error('Missing api_key in ExchangeRate secret');
+  const url = `https://v6.exchangerate-api.com/v6/${apiKey}/pair/${fromCurrency}/${toCurrency}`;
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`Exchange rate fetch failed: ${resp.statusText}`);
   const data = await resp.json();
-  return data.info.rate;
+  if (typeof data.conversion_rate !== 'number') {
+    throw new Error(`Exchange rate missing in response: ${JSON.stringify(data)}`);
+  }
+  return data.conversion_rate;
 }
 
 const secretsClient = new SecretsManagerClient();
