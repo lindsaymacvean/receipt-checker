@@ -190,7 +190,7 @@ exports.handler = async (event) => {
 
       const f = doc.fields;
       const merchant = f.MerchantName?.valueString || 'UNKNOWN';
-      const total = f.Total?.valueNumber || 0;
+      let total = f.Total?.valueNumber || 0;
       const currency = inferCurrency(ocrResult.analyzeResult);
       const txDate = f.TransactionDate?.valueDate || null;
       const txTime = f.TransactionTime?.valueTime || null;
