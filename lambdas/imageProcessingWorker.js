@@ -8,6 +8,17 @@ const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
 const crypto = require('crypto');
 const { saveReceipt } = require('./utils/saveReceiptService');
 const { inferCurrency, isValidReceipt } = require('./utils/receiptOCRHelperFunctions');
+/**
+ * Fetches the exchange rate between two currencies.
+ * Returns how many units of toCurrency equal 1 unit of fromCurrency.
+ */
+async function getExchangeRate(fromCurrency, toCurrency) {
+  const url = `https://api.exchangerate.host/convert?from=${fromCurrency}&to=${toCurrency}`;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Exchange rate fetch failed: ${resp.statusText}`);
+  const data = await resp.json();
+  return data.info.rate;
+}
 
 const secretsClient = new SecretsManagerClient();
 const ddbClient = new DynamoDBClient();
@@ -184,13 +195,41 @@ exports.handler = async (event) => {
       const txDate = f.TransactionDate?.valueDate || null;
       const txTime = f.TransactionTime?.valueTime || null;
 
-      // TODO: convert amounts to the users currency
+      // Retrieve the user's preferred currency from UsersTable and detect foreign receipts
+      let userCurrency = 'EUR';
+      try {
+        const userResp = await ddbClient.send(new GetItemCommand({
+          TableName: 'UsersTable',
+          Key: { pk: { S: waId } }
+        }));
+        if (userResp.Item?.currency?.S) {
+          userCurrency = userResp.Item.currency.S;
+        }
+      } catch (usrErr) {
+        console.error('Error fetching user currency, defaulting to USD', usrErr);
+      }
+      const foreignReceipt = currency !== userCurrency;
+      // If foreign receipt, fetch exchange rate and compute converted total
+      let exchangeRate = 1;
+      let convertedTotal = total;
+      if (foreignReceipt) {
+        console.log('Foreign receipt detected, fetching exchange rate');
+        try {
+          exchangeRate = await getExchangeRate(currency, userCurrency);
+          convertedTotal = parseFloat((total * exchangeRate).toFixed(2));
+        } catch (rateErr) {
+          console.error('Error fetching exchange rate', rateErr);
+        }
+        total = convertedTotal;
+      }
 
       const items = (f.Items?.valueArray || []).map(item => {
         const desc = item.valueObject?.Description?.valueString || '';
         const qty = item.valueObject?.Quantity?.valueNumber || 1;
         const price = item.valueObject?.Price?.valueNumber || item.valueObject?.TotalPrice?.valueNumber || 0;
-        return `${qty} x ${desc} @ ${price.toFixed(2)}`;
+        // convert price if foreign receipt
+        const displayPrice = price * exchangeRate;
+        return `${qty} x ${desc} @ ${displayPrice.toFixed(2)}`;
       });
 
       // Check receipt confidence using helper; if low, notify user and exit
