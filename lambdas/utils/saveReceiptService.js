@@ -23,6 +23,7 @@ async function saveReceipt({
   currency 
 }) {
   let category = 'UNKNOWN';
+  let merchantInfo;
 
   if (merchant !== 'UNKNOWN') {
     // Attempt to fetch category from CategoryTable
@@ -39,7 +40,7 @@ async function saveReceipt({
       console.error('Error fetching category for merchant', merchant, err);
     }
     // If no category found, attempt merchant info lookup via Brave Search
-    let merchantInfo;
+    
     if (category === 'UNKNOWN') {
       console.log('No category found, attempting to fetch merchant info from Brave');
       try {
