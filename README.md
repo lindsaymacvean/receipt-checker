@@ -1,167 +1,107 @@
-# MetaWebhook
+# Receipt Intelligence Platform (via WhatsApp)
 
-Simple AWS Lambda + API Gateway setup for handling Meta webhooks with CORS support.
+## Purpose
 
-## Overview
+This project allows users to send receipts by WhatsApp. It extracts structured data (merchant, date, amount, items), stores it, and lets users ask natural language questions like “How much did I spend on food last month?” and get smart, conversational answers.
 
-- This project includes:
-- A Node.js 18.x Lambda function (`MetaWebhookHandler`) that logs incoming request bodies to CloudWatch Logs and returns a simple JSON response.
-- An API Gateway REST API (`MetaWebhookApi`) with:
-  - POST `/meta_webhook` endpoint integrated with the Lambda.
-  - OPTIONS method for CORS preflight (Allow-Origin: `*`).
-  - On POST, new WhatsApp users are auto-onboarded into `UsersTable` with a free trial (100 credits) and sent a welcome message.
+Refer to `context.md` for full business and architectural context.
 
-  - (Other routes remain unchanged)
-- A single SAM API Gateway deployed with a configurable `StageName` (default `prod`), allowing preprod or prod stages per deployment.
+## Quickstart Guide
 
-## Repository Structure
-```
-lambdas/metaWebhookHandler.js    # Lambda handler code
-template.yaml                    # AWS SAM template for prod/preprod deployments with StageName parameter
-template-sam.yaml                # AWS SAM template for local testing
-events/event.json                # Sample event payload for `sam local invoke`
-deploy.sh                        # Bash script to build & deploy with StageName, domain, token parameters
-test/test_preprod.sh             # Script to test preprod (StageName=preprod) endpoint
-test/test_prod.sh                # Script to test prod (StageName=prod or custom domain) endpoint
-README.md                        # Project overview and instructions
-``` 
+### Prerequisites
 
-## Prerequisites
-- AWS CLI configured with default credentials/region
-- AWS SAM CLI for local testing
-- `curl` or similar for testing HTTP endpoints
-- Python 3 and `pre-commit` for Git pre-commit hooks (for CloudFormation template checks)
-- (Optional) Visual Studio Code with the "CloudFormation Linter" extension by kddejong (AWS CloudFormation template linter)
+- AWS CLI configured with credentials and region
+- AWS SAM CLI for local builds and deployment
+- Python 3 for pre-commit hooks
+- Node.js 18+ installed
+- WhatsApp Business API setup (via Meta/Facebook)
+- Secrets stored in AWS Secrets Manager
 
-## Pre-commit Hook
+### Setup
 
-This repository includes a Git pre-commit hook to lint and validate the CloudFormation template (`template.yaml`) before each commit.
+1. Install dependencies:
+    ```bash
+    pip install cfn-lint pre-commit
+    pre-commit install
+    npm install
+    ```
 
-To enable the hook:
+2. (Optional) Install VSCode plugins:
+   - CloudFormation Linter (kddejong)
+   - AWS Toolkit
+
+3. Populate Secrets Manager with required secrets:
+   ```bash
+   aws secretsmanager put-secret-value --secret-id MetaSecrets --secret-string '{"access_token":"YOUR_TOKEN"}'
+   aws secretsmanager put-secret-value --secret-id AzureSecrets --secret-string '{"ocr_endpoint":"https://your-endpoint", "ocr_key":"your-key"}'
+   aws secretsmanager put-secret-value --secret-id OpenAISecrets --secret-string '{"openai_api_key":"your-openai-key"}'
+   aws secretsmanager put-secret-value --secret-id BraveSecrets --secret-string '{"brave_api_key":"your-brave-api-key"}'
+   ```
+
+### Local Development
+
+- Run the API locally:
+  ```bash
+  sam local start-api -t template-sam.yaml
+  ```
+- Test locally:
+  ```bash
+  curl -X POST http://127.0.0.1:3000/meta_webhook -H 'Content-Type: application/json' -d '{"hello":"world"}'
+  ```
+
+### Deployment
+
+Deploy to pre-production (`dev` branch):
 ```bash
-pip install cfn-lint
-pip install pre-commit
-pre-commit install
-```
-
-## Local Testing with SAM
-1. Start the local API:
-   ```bash
-   sam local start-api -t template-sam.yaml
-   ```
-   By default, it listens on `http://127.0.0.1:3000`.
-
-2. Test the endpoint:
-   ```bash
-   curl -v -X POST http://127.0.0.1:3000/meta_webhook \
-     -H 'Content-Type: application/json' \
-     -d '{"hello":"world"}'
-   ```
-   Expected response:
-   ```json
-   {"message":"OK"}
-   ```
-
-3. View logs in the SAM terminal; you should see:
-   ```
-   Request body: {"hello":"world"}
-   ```
-
-4. Alternatively, invoke directly without starting the API:
-   ```bash
-   sam local invoke MetaWebhookHandler \
-     -t template-sam.yaml \
-     -e events/event.json
-   ```
-
-## Deployment
-### Using the helper script
-By default, `deploy.sh` deploys the stack with `StageName=prod`. To deploy a different stage (e.g., `preprod`), set the `STAGE_NAME` environment variable.
-```bash
-# For prod (default):
-./deploy.sh
-
-# For preprod stage:
 STAGE_NAME=preprod ./deploy.sh
 ```
-This deploys `template.yaml` as the `MetaWebhookStack` CloudFormation stack, including IAM capabilities.
 
-### Manual deployment
-You can also deploy manually using the AWS SAM CLI. Specify the `StageName` parameter to choose the stage.
+Deploy to production (`main` branch):
 ```bash
-# Deploy prod (default)
-sam build --template template.yaml
-sam deploy \
-  --template-file .aws-sam/build/template.yaml \
-  --stack-name MetaWebhookStack \
-  --capabilities CAPABILITY_IAM \
-  --parameter-overrides StageName=prod
-
-# Deploy preprod
-sam build --template template.yaml
-sam deploy \
-  --template-file .aws-sam/build/template.yaml \
-  --stack-name MetaWebhookStack-Preprod \
-  --capabilities CAPABILITY_IAM \
-  --parameter-overrides StageName=preprod
+./deploy.sh
 ```
 
-### Endpoints
-## Testing
-You can use the included scripts to verify your deployment:
-```bash
-# Preprod tests (requires StageName=preprod deployment)
-bash test/test_preprod.sh
+Outputs will show the deployed endpoint URL.
 
-# Prod tests (uses custom domain)
+### Testing
+
+Test deployed endpoints:
+```bash
+bash test/test_preprod.sh
 bash test/test_prod.sh
 ```
-After deployment, use the CloudFormation `ApiEndpoint` output to find your base URL:
+
+### Repository Structure
+
 ```
-ApiEndpoint: https://<api-id>.execute-api.<region>.amazonaws.com/${StageName}/meta_webhook
-CustomDomainName: <your custom domain>
-``` 
-If you have configured a custom domain, the URL will be:
-```
-https://<CustomDomainName>/${StageName}/meta_webhook
+lambdas/metaWebhookHandler.js       # Webhook handler Lambda
+lambdas/imageProcessingWorker.js    # Image processing worker Lambda
+lambdas/textProcessingWorker.js     # Text processing worker Lambda
+scripts/                            # Helper deployment scripts
+template.yaml                       # AWS SAM CloudFormation template
+context.md                          # Business and architecture context
+README.md                           # Technical guide (you are here)
 ```
 
-## Post-Deployment Configuration
-After deploying the stack, you must populate four Secrets Manager secrets: `MetaSecrets`, `AzureSecrets`, `OpenAISecrets`, and `BraveSecrets`.
+## CI/CD
 
-To set your WhatsApp system user token in MetaSecrets:
-```bash
-aws secretsmanager put-secret-value \
-  --secret-id MetaSecrets \
-  --secret-string '{"access_token":"YOUR_WA_TOKEN"}'
-```
+- **Pre-commit hooks:**
+  - `cfn-lint` to lint CloudFormation templates
+  - `aws cloudformation validate-template`
+- **GitHub Actions:**
+  - Runs pre-commit checks on push and pull request
+  - Validates template.yaml
 
-To set your Azure OCR endpoint and key in AzureSecrets:
-```bash
-aws secretsmanager put-secret-value \
-  --secret-id AzureSecrets \
-  --secret-string '{
-    "ocr_endpoint":"https://<app-name>.cognitiveservices.azure.com",
-    "ocr_key":"YOUR_OCR_KEY"
-  }'
-```
+## Secrets Management
 
-To set your OpenAI API key for the text processing worker:
-```bash
-aws secretsmanager put-secret-value \
-  --secret-id OpenAISecrets \
-  --secret-string '{"openai_api_key":"YOUR_OPENAI_API_KEY"}'
-```
-  
-To set your Brave API key for merchant categorization:
-```bash
-aws secretsmanager put-secret-value \
-  --secret-id BraveSecrets \
-  --secret-string '{"brave_api_key":"YOUR_BRAVE_API_KEY"}'
-```
+Secrets required:
 
-Alternatively, you can update these secrets via the AWS Console under Secrets Manager.
+- `MetaSecrets`: WhatsApp API token
+- `AzureSecrets`: Azure OCR endpoint/key
+- `OpenAISecrets`: OpenAI API key
+- `BraveSecrets`: Brave Search API key
 
+Stored securely in AWS Secrets Manager.
 ## Cleanup
 ```bash
 # Manual cleanup via AWS CLI (uses default profile/region)
@@ -174,10 +114,26 @@ Alternatively, you can use the included `teardown.sh` script to target a specifi
 ./teardown.sh <aws-profile>
 ```
 
-## FAQs
+## Troubleshooting
 
-If struggling to register a number on whatsapp business platform see here
+- If struggling to register a number on whatsapp business platform see here
 [https://stackoverflow.com/questions/78348741/the-account-does-not-exist-in-the-cloud-api-whatsapp-business-api-problem-wi](https://stackoverflow.com/questions/78348741/the-account-does-not-exist-in-the-cloud-api-whatsapp-business-api-problem-wi)
-
-If struggling with webhooks from meta see here
+- If struggling with webhooks from meta see here
 [https://stackoverflow.com/questions/79175537/whatsapp-business-api-messages-webhook-not-triggering-even-with-manual-testin](https://stackoverflow.com/questions/79175537/whatsapp-business-api-messages-webhook-not-triggering-even-with-manual-testin)
+- **Webhook not triggering?** Check Meta app settings and webhook subscription URL.
+- **CloudFormation errors?** Validate templates manually with `cfn-lint` and `aws cloudformation validate-template`.
+- **OCR failures?** Verify Azure Form Recognizer configuration.
+
+## Future Plans
+
+- Smarter duplicate receipt detection (Bayesian methods)
+- Currency conversion
+- Image archival in S3
+- Automated spending summaries
+- Reconcilliation with bank/credit card statements
+- Admin dashboard
+- 'Find it cheaper' mobile app
+
+---
+
+For full system architecture, philosophy, and RAG strategy, please see `context.md`.
