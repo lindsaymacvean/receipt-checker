@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: 
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install cfn-lint pre-commit awscli
+
+      - name: Run pre-commit checks
+        run: pre-commit run --all-files
