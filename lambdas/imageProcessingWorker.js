@@ -22,13 +22,22 @@ async function getExchangeRate(fromCurrency, toCurrency) {
   const sec = JSON.parse(secResp.SecretString || '{}');
   const apiKey = sec.api_key;
   if (!apiKey) throw new Error('Missing api_key in ExchangeRate secret');
+
   const url = `https://v6.exchangerate-api.com/v6/${apiKey}/pair/${fromCurrency}/${toCurrency}`;
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`Exchange rate fetch failed: ${resp.statusText}`);
+  console.log(`Calling exchange rate API: ${url}`);
+
+  const resp = await fetch(url, { headers: { "Accept": "application/json" } });
+  if (!resp.ok) {
+    console.error(`Exchange rate fetch failed: ${resp.statusText}`);
+    throw new Error(`Exchange rate fetch failed: ${resp.statusText}`);
+  }
+
   const data = await resp.json();
   if (typeof data.conversion_rate !== 'number') {
+    console.error('Unexpected exchange rate API response:', JSON.stringify(data, null, 2));
     throw new Error(`Exchange rate missing in response: ${JSON.stringify(data)}`);
   }
+
   return data.conversion_rate;
 }
 
@@ -125,6 +134,51 @@ exports.handler = async (event) => {
       if (!mediaResp.ok) throw new Error(`Failed to download media: ${mediaResp.statusText}`);
       const imageBuffer = await mediaResp.arrayBuffer();
 
+      // Step 2d.2: Classify image using Azure Computer Vision (optional pre-filter)
+      try {
+        console.log('Sending image to Azure Computer Vision for classification...');
+        const visionResp = await fetch(`${ocrEndpoint.replace('formrecognizer', 'computervision')}/analyze?visualFeatures=Categories,Tags&language=en`, {
+          method: 'POST',
+          headers: {
+            'Ocp-Apim-Subscription-Key': ocrKey,
+            'Content-Type': 'application/octet-stream'
+          },
+          body: Buffer.from(imageBuffer)
+        });
+
+        if (visionResp.ok) {
+          const visionResult = await visionResp.json();
+          const tags = visionResult.tags?.map(tag => tag.name.toLowerCase()) || [];
+          console.log('Vision tags:', tags.join(', '));
+          const likelyReceipt = tags.includes('receipt') || tags.includes('invoice') || tags.includes('bill');
+
+          if (!likelyReceipt) {
+            console.warn('This image does not appear to be a receipt');
+            if (waId && phoneNumberId && accessToken) {
+              const notReceiptUrl = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
+              await fetch(notReceiptUrl, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  messaging_product: 'whatsapp',
+                  to: waId,
+                  text: { body: 'Hmm, this image doesn\'t look like a receipt. Please send a clear photo of a receipt.' }
+                })
+              });
+              console.log('✅ Non-receipt notification sent');
+            }
+            continue; // Skip further processing
+          }
+        } else {
+          console.error('Failed to classify image:', visionResp.statusText);
+        }
+      } catch (visionErr) {
+        console.error('Error during image classification', visionErr);
+      }
+
       // Step 2d.1: Check for duplicate image via ImagesTable
       try {
         const hash = crypto.createHash('sha256').update(Buffer.from(imageBuffer)).digest('hex');
@@ -172,6 +226,8 @@ exports.handler = async (event) => {
       // TODO: add the image to S3 bucket for backup
 
       // Step 2e: Send image to Azure OCR (Receipt model)
+      
+
       console.log('Sending image to Azure OCR...');
       const ocrInit = await fetch(`${ocrEndpoint}/formrecognizer/documentModels/prebuilt-receipt:analyze?api-version=2023-07-31`, {
         method: 'POST',
@@ -215,7 +271,7 @@ exports.handler = async (event) => {
             messaging_product: 'whatsapp',
             to: waId,
             context: { message_id: messageId },
-            text: { body: 'Sorry, I could not detect a receipt in that picture. Please try with a clearer image.' }
+            text: { body: 'Sorry, I could not read the receipt in that picture. Please try with a clearer image.' }
           })
         });
         console.log('✅ Low-confidence receipt notification sent');

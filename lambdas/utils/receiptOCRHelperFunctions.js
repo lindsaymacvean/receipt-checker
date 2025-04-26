@@ -14,7 +14,8 @@ function inferCurrency(analyzeResult) {
   
 function isValidReceipt(analyzeResult) {
     const doc = analyzeResult.documents?.[0];
-    return doc?.docType?.startsWith('receipt') && doc?.confidence >= 0.85;
+    const hasContent = (analyzeResult.content || '').trim().length > 0;
+    return doc?.docType?.startsWith('receipt') && doc?.confidence >= 0.85 && hasContent;
 }
 
 module.exports = { inferCurrency, isValidReceipt };
