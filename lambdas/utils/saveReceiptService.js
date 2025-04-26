@@ -10,65 +10,82 @@ const secretsClient = new SecretsManagerClient();
  * Performs category lookup in CategoryTable.
  * Returns the composite keys { receiptPk, receiptSk }.
  */
-async function saveReceipt({ ddbClient, merchant, waId, dateMessageId, total, txDate, txTime, items, imageId, ocrResult, currency }) {
-  // Lookup category or use placeholder
+async function saveReceipt({ 
+  ddbClient, 
+  merchant, 
+  waId, 
+  total, 
+  txDate, 
+  txTime, 
+  items, 
+  imageId, 
+  ocrResult, 
+  currency 
+}) {
   let category = 'UNKNOWN';
-  try {
-    const catKey = { companyName: { S: merchant } };
-    const catResp = await ddbClient.send(new GetItemCommand({
-      TableName: 'CategoryTable',
-      Key: catKey
-    }));
-    if (catResp.Item?.category?.S) {
-      category = catResp.Item.category.S;
-    }
-  } catch (err) {
-    console.error('Error fetching category for merchant', merchant, err);
-  }
-  // If no category found, attempt merchant info lookup via Brave Search
-  let merchantInfo;
-  if (category === 'UNKNOWN') {
+
+  if (merchant !== 'UNKNOWN') {
+    // Attempt to fetch category from CategoryTable
     try {
-      merchantInfo = await lookupMerchantInfo(merchant);
-      console.log('Brave lookup info for merchant', merchant, merchantInfo);
-    } catch (infoErr) {
-      console.error('Error fetching merchant info from Brave', merchant, infoErr);
+      const catKey = { companyName: { S: merchant } };
+      const catResp = await ddbClient.send(new GetItemCommand({
+        TableName: 'CategoryTable',
+        Key: catKey
+      }));
+      if (catResp.Item?.category?.S) {
+        category = catResp.Item.category.S;
+      }
+    } catch (err) {
+      console.error('Error fetching category for merchant', merchant, err);
     }
-    // If merchant info found, classify with OpenAI
-    if (merchantInfo) {
+    // If no category found, attempt merchant info lookup via Brave Search
+    let merchantInfo;
+    if (category === 'UNKNOWN') {
+      console.log('No category found, attempting to fetch merchant info from Brave');
       try {
-        const openaiSecretId = process.env.OPENAI_SECRET_ID;
-        if (!openaiSecretId) throw new Error('Missing OPENAI_SECRET_ID env var');
-        const sec = await secretsClient.send(
-          new GetSecretValueCommand({ SecretId: openaiSecretId })
-        );
-        const oa = JSON.parse(sec.SecretString || '{}');
-        const openaiApiKey = oa.openai_api_key;
-        if (!openaiApiKey) throw new Error('Missing openai_api_key in secret');
-        // Prepare prompt for classification using merchant info
-        const prompt = detailedMerchantPrompt(merchant, merchantInfo);
-        const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openaiApiKey}`
-          },
-          body: JSON.stringify({
-            model: 'gpt-3.5-turbo',
-            messages: [{ role: 'user', content: prompt }]
-          })
-        });
-        if (!resp.ok) throw new Error(`OpenAI classification failed: ${resp.statusText}`);
-        const data = await resp.json();
-        const content = data.choices?.[0]?.message?.content?.trim();
-        if (content) {
-          category = content;
-          console.log('OpenAI classified category for merchant', merchant, category);
+        merchantInfo = await lookupMerchantInfo(merchant);
+        console.log('Brave lookup info for merchant', merchant, merchantInfo);
+      } catch (infoErr) {
+        console.error('Error fetching merchant info from Brave', merchant, infoErr);
+      }
+      // If merchant info found, classify with OpenAI
+      if (merchantInfo) {
+        try {
+          const openaiSecretId = process.env.OPENAI_SECRET_ID;
+          if (!openaiSecretId) throw new Error('Missing OPENAI_SECRET_ID env var');
+          const sec = await secretsClient.send(
+            new GetSecretValueCommand({ SecretId: openaiSecretId })
+          );
+          const oa = JSON.parse(sec.SecretString || '{}');
+          const openaiApiKey = oa.openai_api_key;
+          if (!openaiApiKey) throw new Error('Missing openai_api_key in secret');
+          // Prepare prompt for classification using merchant info
+          const prompt = detailedMerchantPrompt(merchant, merchantInfo);
+          const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${openaiApiKey}`
+            },
+            body: JSON.stringify({
+              model: 'gpt-3.5-turbo',
+              messages: [{ role: 'user', content: prompt }]
+            })
+          });
+          if (!resp.ok) throw new Error(`OpenAI classification failed: ${resp.statusText}`);
+          const data = await resp.json();
+          const content = data.choices?.[0]?.message?.content?.trim();
+          if (content) {
+            category = content;
+            console.log('OpenAI classified category for merchant', merchant, category);
+          }
+        } catch (claErr) {
+          console.error('Error classifying merchant with OpenAI', merchant, claErr);
         }
-      } catch (claErr) {
-        console.error('Error classifying merchant with OpenAI', merchant, claErr);
       }
     }
+  } else {
+    console.log('Merchant not found, skipping category lookup');
   }
 
   // Compose receipt item

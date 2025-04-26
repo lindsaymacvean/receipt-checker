@@ -172,6 +172,7 @@ exports.handler = async (event) => {
       // TODO: add the image to S3 bucket for backup
 
       // Step 2e: Send image to Azure OCR (Receipt model)
+      console.log('Sending image to Azure OCR...');
       const ocrInit = await fetch(`${ocrEndpoint}/formrecognizer/documentModels/prebuilt-receipt:analyze?api-version=2023-07-31`, {
         method: 'POST',
         headers: {
@@ -199,6 +200,7 @@ exports.handler = async (event) => {
 
       const doc = ocrResult.analyzeResult.documents?.[0];
       if (!doc) throw new Error('No document returned');
+      console.log('OCR result:', JSON.stringify(doc, null, 2));
 
       const f = doc.fields;
       const merchant = f.MerchantName?.valueString || 'UNKNOWN';
@@ -270,7 +272,6 @@ exports.handler = async (event) => {
         ddbClient,
         merchant,
         waId,
-        dateMessageId,
         total,
         txDate,
         txTime,
