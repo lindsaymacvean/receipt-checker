@@ -127,6 +127,7 @@ Resources:
               Resource:
                 - !GetAtt CategoryTable.Arn
                 - !GetAtt ImagesTable.Arn
+                - !GetAtt UsersTable.Arn
       Events:
         ReceiptQueueEvent:
           Type: SQS
