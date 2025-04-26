@@ -252,7 +252,7 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: TextProcessingQueue
-      VisibilityTimeout: 60
+      VisibilityTimeout: 900
       Tags:
         - Key: App
           Value: ReceiptChecker

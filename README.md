@@ -30,6 +30,19 @@ README.md                        # Project overview and instructions
 - AWS CLI configured with default credentials/region
 - AWS SAM CLI for local testing
 - `curl` or similar for testing HTTP endpoints
+- Python 3 and `pre-commit` for Git pre-commit hooks (for CloudFormation template checks)
+- (Optional) Visual Studio Code with the "CloudFormation Linter" extension by kddejong (AWS CloudFormation template linter)
+
+## Pre-commit Hook
+
+This repository includes a Git pre-commit hook to lint and validate the CloudFormation template (`template.yaml`) before each commit.
+
+To enable the hook:
+```bash
+pip install cfn-lint
+pip install pre-commit
+pre-commit install
+```
 
 ## Local Testing with SAM
 1. Start the local API:
