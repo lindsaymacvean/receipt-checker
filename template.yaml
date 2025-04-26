@@ -243,9 +243,12 @@ Resources:
     Properties:
       QueueName: ImageProcessingQueue
       VisibilityTimeout: 60
+      MessageRetentionPeriod: 345600
       Tags:
         - Key: App
           Value: ReceiptChecker
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
 
   
   TextProcessingQueue:
@@ -253,9 +256,12 @@ Resources:
     Properties:
       QueueName: TextProcessingQueue
       VisibilityTimeout: 900
+      MessageRetentionPeriod: 345600
       Tags:
         - Key: App
           Value: ReceiptChecker
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
 
   # SQS queue for heartbeat delays to keep users engaged
   HeartbeatQueue:
@@ -263,9 +269,12 @@ Resources:
     Properties:
       QueueName: HeartbeatQueue
       VisibilityTimeout: 60
+      MessageRetentionPeriod: 345600
       Tags:
         - Key: App
           Value: ReceiptChecker
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
 
   # DynamoDB tables for receipt processing
   MessagesTable:
@@ -286,6 +295,8 @@ Resources:
       Tags:
         - Key: App
           Value: ReceiptChecker
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
 
   ReceiptsTable:
     Type: AWS::DynamoDB::Table
@@ -305,6 +316,8 @@ Resources:
       Tags:
         - Key: App
           Value: ReceiptChecker
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
 
   UsersTable:
     Type: AWS::DynamoDB::Table
@@ -320,6 +333,8 @@ Resources:
       Tags:
         - Key: App
           Value: ReceiptChecker
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
 
   # DynamoDB table for conversation history
   ConversationHistoryTable:
@@ -340,6 +355,8 @@ Resources:
       Tags:
         - Key: App
           Value: ReceiptChecker
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
 
   # DynamoDB table for mapping company/shop names to spending categories
   CategoryTable:
@@ -365,6 +382,8 @@ Resources:
       Tags:
         - Key: App
           Value: ReceiptChecker
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
 
   # DynamoDB table for tracking seen image hashes (deduplication lookup)
   ImagesTable:
@@ -381,6 +400,8 @@ Resources:
       Tags:
         - Key: App
           Value: ReceiptChecker
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
 
   # Secrets Manager secret for WhatsApp Cloud API access token
   MetaSecrets:
