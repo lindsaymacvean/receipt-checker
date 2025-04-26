@@ -413,6 +413,8 @@ Resources:
       Tags:
         - Key: App
           Value: ReceiptChecker
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
 
   # Secrets Manager secret for Azure OCR configuration
   AzureSecrets:
@@ -424,6 +426,8 @@ Resources:
       Tags:
         - Key: App
           Value: ReceiptChecker
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
   # Secrets Manager secret for OpenAI API key
   OpenAISecrets:
     Type: AWS::SecretsManager::Secret
@@ -434,6 +438,8 @@ Resources:
       Tags:
         - Key: App
           Value: ReceiptChecker
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
   # Secrets Manager secret for Brave API key
   BraveSecrets:
     Type: AWS::SecretsManager::Secret
@@ -444,6 +450,8 @@ Resources:
       Tags:
         - Key: App
           Value: ReceiptChecker
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
 
 Outputs:
   ApiEndpoint:
