@@ -30,6 +30,17 @@ Refer to `context.md` for full business and architectural context.
    - CloudFormation Linter (kddejong)
    - AWS Toolkit
 
+4. (Optional) If you encounter lint warnings about CloudFormation intrinsic functions (like !Ref, !GetAtt) in VSCode, update your VSCode `settings.json`:
+
+   ```json
+   "yaml.schemas": {
+     "https://raw.githubusercontent.com/awslabs/goformation/master/schema/cloudformation.schema.json": [
+       "template.yaml"
+     ]
+   }
+   ```
+   This associates `template.yaml` with the correct schema for CloudFormation/SAM templates.
+
 3. Populate Secrets Manager with required secrets:
    ```bash
    aws secretsmanager put-secret-value --secret-id MetaSecrets --secret-string '{"access_token":"YOUR_TOKEN"}'
@@ -102,7 +113,17 @@ Secrets required:
 - `BraveSecrets`: Brave Search API key
 
 Stored securely in AWS Secrets Manager.
+
+### GitHub Actions Secrets
+
+When using GitHub Actions for deployment or CI, ensure that your AWS credentials are securely set in the repository's GitHub settings under **Settings > Secrets and variables > Actions**. Set:
+
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- (Optional) `AWS_REGION` if not default
+
 ## Cleanup
+
 ```bash
 # Manual cleanup via AWS CLI (uses default profile/region)
 aws cloudformation delete-stack --stack-name MetaWebhookStack
