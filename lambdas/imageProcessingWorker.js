@@ -202,6 +202,26 @@ exports.handler = async (event) => {
       if (!doc) throw new Error('No document returned');
       console.log('OCR result:', JSON.stringify(doc, null, 2));
 
+      // Check receipt confidence using helper; if low, notify user and exit
+      if (!isValidReceipt(ocrResult.analyzeResult)) {
+        const lowConfUrl = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
+        await fetch(lowConfUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: waId,
+            context: { message_id: messageId },
+            text: { body: 'Sorry, I could not detect a receipt in that picture. Please try with a clearer image.' }
+          })
+        });
+        console.log('✅ Low-confidence receipt notification sent');
+        return;
+      }
+
       const f = doc.fields;
       const merchant = f.MerchantName?.valueString || 'UNKNOWN';
       let total = f.Total?.valueNumber || 0;
@@ -246,26 +266,8 @@ exports.handler = async (event) => {
         return `${qty} x ${desc} @ ${displayPrice.toFixed(2)}`;
       });
 
-      // Check receipt confidence using helper; if low, notify user and exit
-      if (!isValidReceipt(ocrResult.analyzeResult)) {
-        const lowConfUrl = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
-        await fetch(lowConfUrl, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            to: waId,
-            context: { message_id: messageId },
-            text: { body: 'Sorry, I could not detect a receipt in that picture. Please try with a clearer image.' }
-          })
-        });
-        console.log('✅ Low-confidence receipt notification sent');
-        return;
-      }
       // TODO: check if receipt data is bayesian (see arch) likely duplicate and send message to user
+
 
       // Step 2f: Save structured receipt via helper
       const { receiptPk, receiptSk } = await saveReceipt({
