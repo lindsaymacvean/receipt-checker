@@ -81,7 +81,7 @@ sam deploy \
 echo "Deployment of stack '$STACK_NAME' complete."
 
 if [ "$CREATE_CUSTOM_DOMAIN" == "true" ]; then
-  echo "You should create a custom domain in the AWS console...
+  echo "You should create a custom domain in the AWS console..."
   # ITS REALLY HARD TO DO THIS IN SAM EASIER TO JUST DO IT MANUALLY
   # echo "Deploying custom domain CloudFormation template..."
 
