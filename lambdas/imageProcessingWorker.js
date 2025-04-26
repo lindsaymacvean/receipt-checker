@@ -219,7 +219,7 @@ exports.handler = async (event) => {
           })
         });
         console.log('✅ Low-confidence receipt notification sent');
-        return;
+        continue; // Skip saving this receipt
       }
 
       const f = doc.fields;
@@ -266,8 +266,39 @@ exports.handler = async (event) => {
         return `${qty} x ${desc} @ ${displayPrice.toFixed(2)}`;
       });
 
-      // TODO: check if receipt data is bayesian (see arch) likely duplicate and send message to user
-
+      // Check for existing receipt with same date and total
+      try {
+        const receiptResp = await ddbClient.send(new GetItemCommand({
+          TableName: 'ReceiptsTable',
+          Key: { 
+            pk: { S: waId }, 
+            sk: { S: `RECEIPT#${txDate || new Date().toISOString().split('T')[0]}#${total}` }
+          }
+        }));
+        if (receiptResp.Item) {
+          const duplicateUrl = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
+          await fetch(duplicateUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              to: waId,
+              context: { message_id: messageId },
+              text: {
+                body: `🧾 It looks like you already uploaded a receipt for ${merchant} totaling ${total} on ${txDate}. No need to upload it again!`
+              }
+            })
+          });
+          console.log('✅ Duplicate receipt notification sent');
+          continue; // Skip saving this receipt
+        }
+      } catch (dupCheckErr) {
+        console.error('Error checking for existing receipt', dupCheckErr);
+        // Continue processing normally
+      }
 
       // Step 2f: Save structured receipt via helper
       const { receiptPk, receiptSk } = await saveReceipt({
