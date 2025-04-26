@@ -97,7 +97,8 @@ exports.handler = async (event) => {
               const isImageMessage = incomingMessages.some(m => m.type === 'image' || m.image);
               let welcomeText;
               if (isImageMessage) {
-                welcomeText = 'Thanks for the image! We\'ve queued your receipt. Feel free to send me another one or ask me a question about your spending.';
+                welcomeText = `Thanks for the image! I\'ve queued it to be added to your database of spending. 
+                 Feel free to send me another one or ask me a question about your spending.`;
               } else {
                 welcomeText = 'Welcome to ReceiptChecker! Ok lets get started. Try sending us a photo of a receipt.';
               }
