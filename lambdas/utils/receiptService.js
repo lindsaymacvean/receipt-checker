@@ -23,7 +23,22 @@ async function saveReceipt({ ddbClient, merchant, waId, dateMessageId, total, tx
 
   // Compose receipt item
   const receiptPk = `USER#${waId}`;
-  const receiptSk = `RECEIPT#${new Date().toISOString()}#${total.toString()}`;
+  let receiptTimestamp;
+  try {
+    if (txDate && txTime) {
+      // Combine txDate and txTime into ISO string
+      const [year, month, day] = txDate.split('-');
+      receiptTimestamp = new Date(`${year}-${month}-${day}T${txTime}Z`).toISOString();
+    } else if (txDate) {
+      receiptTimestamp = new Date(txDate).toISOString();
+    } else {
+      receiptTimestamp = new Date().toISOString();
+    }
+  } catch (e) {
+    console.error('Failed to compose receipt timestamp, defaulting to now', e);
+    receiptTimestamp = new Date().toISOString();
+  }
+  const receiptSk = `RECEIPT#${receiptTimestamp}#${total.toString()}`;
   const record = {
     pk: { S: receiptPk },
     sk: { S: receiptSk },
