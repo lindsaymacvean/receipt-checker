@@ -91,9 +91,7 @@ exports.handler = async (event) => {
           const phoneNumberId = changes[0].value?.metadata?.phone_number_id;
           if (phoneNumberId) {
             try {
-              const sec = await secretsClient.send(new GetSecretValueCommand({ SecretId: process.env.META_SECRET_ID }));
-              const metaSecret = JSON.parse(sec.SecretString);
-              const accessToken = metaSecret.access_token;
+              const accessToken = metaAccessToken;
               // Customize welcome text based on incoming message type
               const incomingMessages = changes[0].value?.messages || [];
               const isImageMessage = incomingMessages.some(m => m.type === 'image' || m.image);
@@ -124,7 +122,7 @@ exports.handler = async (event) => {
                 return {
                   statusCode: 200,
                   headers: { 'Access-Control-Allow-Origin': '*' },
-                  body: JSON.stringify({ message: 'Image message received, queued for processing.' })
+                  body: JSON.stringify({ message: 'Welcome message sent. Awaiting receipt image.' })
                 };
               }
             } catch (err) {
