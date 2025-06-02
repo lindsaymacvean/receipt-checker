@@ -1,9 +1,19 @@
 ## Agents and Monorepo Structure
 
-This codebase now includes a Next.js frontend in the `frontend/` directory. The `frontend` app is designed to provide a web dashboard for viewing, managing, and querying uploaded receipts, and may allow administrative or user access, authenticated via Cognito.
+### Monorepo Layout (As of June 2024)
 
-**Additional Details:**
-- This monorepo includes both backend (AWS Lambda, SAM, API Gateway) and frontend (Next.js) code for development and deployment consistency.
-- See the root `README.md` for starter commands for local development and deployment.
+- `backend/` — AWS Lambda, SAM templates, deployment scripts, all infrastructure code
+- `frontend/` — Next.js TypeScript project for admin/dashboard UI
+- Each side has **fully separate build and deploy mechanisms** (SAM for backend, Vercel/S3/CloudFront/other for frontend)
+- Top-level docs (`README.md`, `context.md`) explain how to run, develop, and deploy each independently
 
-_Added 2024-06-02: Next.js admin/frontend scaffold integrated._
+**Quick Start:**
+- Backend API: see `backend/README.md` and deploy/test as in root README
+- Next.js frontend: run with `npm run dev` in the `frontend/` directory
+
+**Purpose:**
+- The frontend is for exploring and visualizing uploaded receipts, managing user/admin actions, and will be extended to integrate with backend APIs (authenticated via Cognito)
+
+---
+
+_Last monorepo restructure: 2024-06-02_

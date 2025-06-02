@@ -4,7 +4,7 @@
 
 This project allows users to send receipts by WhatsApp. It extracts structured data (merchant, date, amount, items), stores it, and lets users ask natural language questions like “How much did I spend on food last month?” and get smart, conversational answers.
 
-Refer to `context.md` for full business and architectural context.
+Refer to `AGENTS.md` for full business and architectural context.
 
 ## Quickstart Guide
 
@@ -19,10 +19,16 @@ Refer to `context.md` for full business and architectural context.
 
 ### Setup
 
-1. Install dependencies:
+1. **Backend AWS/SAM setup:**
     ```bash
+    cd backend
     pip install cfn-lint pre-commit
     pre-commit install
+    ```
+
+2. **Frontend (Next.js) setup:**
+    ```bash
+    cd frontend
     npm install
     ```
 
@@ -32,14 +38,14 @@ Refer to `context.md` for full business and architectural context.
 
 4. (Optional) If you encounter lint warnings about CloudFormation intrinsic functions (like !Ref, !GetAtt) in VSCode, update your VSCode `settings.json`:
 
-   ```json
-   "yaml.schemas": {
-     "https://raw.githubusercontent.com/awslabs/goformation/master/schema/cloudformation.schema.json": [
-       "template.yaml"
-     ]
-   }
-   ```
-   This associates `template.yaml` with the correct schema for CloudFormation/SAM templates.
+```json
+"yaml.schemas": {
+  "https://raw.githubusercontent.com/awslabs/goformation/master/schema/cloudformation.schema.json": [
+    "backend/template.yaml"
+  ]
+}
+```
+This associates `backend/template.yaml` with the correct schema for CloudFormation/SAM templates.
 
 3. Populate Secrets Manager with required secrets:
    ```bash
@@ -50,46 +56,51 @@ Refer to `context.md` for full business and architectural context.
    ```
 
 
-### Local Development
 
-To run both the backend API and the Next.js frontend together:
+### Local Development (Monorepo)
 
-1. **Run the API locally:**
-Start docker service.
-   ```bash
-   sam local start-api -t template-sam.yaml
-   ```
+This project uses a true monorepo structure. The backend and frontend have totally separate dependency management and deploy flows. You can run both locally in parallel—ideal for development!
 
-2. **Start the frontend (in a new terminal):**
-   ```bash
-   cd frontend
-   npm install   # Only needed the first time
-   npm run dev
-   ```
+**Start backend API locally:**
+```bash
+cd backend
+sam local start-api -t template-sam.yaml
+```
 
-  - The frontend will be at [http://localhost:3000](http://localhost:3000)
-  - The backend API runs at [http://localhost:3000/meta_webhook](http://localhost:3000/meta_webhook) by default
+**Start frontend app (in a new terminal):**
+```bash
+cd frontend
+npm run dev
+```
 
-You can then access the frontend normally in a browser. Any API calls from the frontend should use the local API address or be proxied.
+- The frontend (Next.js) is at [http://localhost:3000](http://localhost:3000)
+- The backend API runs at [http://127.0.0.1:3000/meta_webhook](http://127.0.0.1:3000/meta_webhook) by default (on same port—be sure not to conflict)
+
+> You may want to configure API requests in your frontend (during local dev) to hit the correct endpoint (use proxy or ENV var).
 
 #### Example: Test the local API
 ```bash
 curl -X POST http://127.0.0.1:3000/meta_webhook -H 'Content-Type: application/json' -d '{"hello":"world"}'
 ```
 
+
 ### Deployment
 
+#### Backend (AWS/SAM):
 Deploy to pre-production (`dev` branch):
 ```bash
+cd backend
 STAGE_NAME=preprod ./deploy.sh
 ```
-
 Deploy to production (`main` branch):
 ```bash
+cd backend
 ./deploy.sh
 ```
-
 Outputs will show the deployed endpoint URL.
+
+#### Frontend (Next.js):
+Deploy with your preferred platform (e.g. Vercel, Netlify, or S3+CloudFront for static export). See `frontend/README.md` for details.
 
 #### Manual Step after first Deployment
 - After deploying the SAM stack:
@@ -108,35 +119,43 @@ bash test/test_preprod.sh
 bash test/test_prod.sh
 ```
 
-lambdas/metaWebhookHandler.js       # Webhook handler Lambda
-lambdas/imageProcessingWorker.js    # Image processing worker Lambda
-lambdas/textProcessingWorker.js     # Text processing worker Lambda
-scripts/                            # Helper deployment scripts
-template.yaml                       # AWS SAM CloudFormation template
+backend/lambdas/metaWebhookHandler.js       # Webhook handler Lambda
+backend/lambdas/imageProcessingWorker.js    # Image processing worker Lambda
+backend/lambdas/textProcessingWorker.js     # Text processing worker Lambda
+backend/scripts/                            # Helper deployment scripts
+backend/template.yaml                       # AWS SAM CloudFormation template
 context.md                          # Business and architecture context
 README.md                           # Technical guide (you are here)
+
 
 ### Repository Structure
 
 ```
-lambdas/         # Lambda functions for backend/API
-frontend/        # Next.js frontend for admin/receipts dashboard
-scripts/         # Deployment and utility scripts
-test/            # Integration and API test scripts
-layers/          # Lambda layer code
-template.yaml    # AWS SAM CloudFormation template
-context.md       # Business and architecture context
-README.md        # Technical guide (you are here)
+backend/                    # All backend AWS Lambda/SAM/API infra
+  lambdas/                  # Lambda sources
+  layers/                   # Lambda layers
+  scripts/                  # Utility/deploy scripts
+  template.yaml             # Cloud/SAM stack template
+  deploy.sh, teardown.sh    # AWS deployment scripts
+frontend/                   # Next.js web frontend (dashboard/admin UI)
+test/                       # Integration and API/local e2e test scripts
+context.md                  # Project architecture/business overview
+README.md                   # Main entrypoint for repo documentation
+AGENTS.md                   # Agent/AI/maintainers onboarding notes
 ```
+
 
 ## CI/CD
 
 - **Pre-commit hooks:**
   - `cfn-lint` to lint CloudFormation templates
   - `aws cloudformation validate-template`
+  - Run in `backend/` for all CloudFormation/SAM validation (`cfn-lint`)
 - **GitHub Actions:**
   - Runs pre-commit checks on push and pull request
   - Validates template.yaml
+  - Runs pre-commit checks on push and pull request (usually for `backend/` infra)
+  - Frontend is typically built/tested/deployed via separate workflow
 
 ## Secrets Management
 
@@ -165,10 +184,10 @@ When using GitHub Actions for deployment or CI, ensure that your AWS credentials
 aws cloudformation delete-stack --stack-name MetaWebhookStack
 ```
 
-Alternatively, you can use the included `teardown.sh` script to target a specific AWS CLI profile:
+Alternatively, you can use the included `backend/teardown.sh` script to target a specific AWS CLI profile:
 
 ```bash
-./teardown.sh <aws-profile>
+./backend/teardown.sh <aws-profile>
 ```
 
 ## Troubleshooting

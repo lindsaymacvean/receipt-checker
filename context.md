@@ -43,22 +43,22 @@ This is a serverless, event-driven application hosted on AWS.
 ## 🧱 Key Components
 
 ### Lambda Handlers
-- `lambdas/metaWebhookGetHandler.js`: handles the GET subscription verification handshake
-- `lambdas/metaWebhookHandler.js`: handles incoming POST webhooks and logs payloads
+- `backend/lambdas/metaWebhookGetHandler.js`: handles the GET subscription verification handshake
+- `backend/lambdas/metaWebhookHandler.js`: handles incoming POST webhooks and logs payloads
 
 ### Infrastructure
-- `template.yaml`:  
+- `backend/template.yaml`:  
   AWS SAM template defining:
   - Two Lambda functions (GET & POST handlers)
   - Single `AWS::Serverless::Api` (**MetaWebhookApi**) with `StageName` parameter for preprod or prod paths
   - CORS enabled for OPTIONS, GET, POST
   - Custom domain mapping via parameters
 
-- `template-sam.yaml`:  
+- `backend/template-sam.yaml`:  
   SAM template for local testing via `sam local start-api`.
 
 ### Supporting Scripts
-- `deploy.sh`, `teardown.sh`: CLI scripts for deploying and deleting stacks.
+- `backend/deploy.sh`, `backend/teardown.sh`: CLI scripts for deploying and deleting stacks.
 - `test/test_preprod.sh`, `test/test_prod.sh`: scripts to verify preprod and prod endpoints
 - `events/event.json`: Test payload for local simulation.
 
