@@ -49,16 +49,33 @@ Refer to `context.md` for full business and architectural context.
    aws secretsmanager put-secret-value --secret-id BraveSecrets --secret-string '{"brave_api_key":"your-brave-api-key"}'
    ```
 
+
 ### Local Development
 
-- Run the API locally:
-  ```bash
-  sam local start-api -t template-sam.yaml
-  ```
-- Test locally:
-  ```bash
-  curl -X POST http://127.0.0.1:3000/meta_webhook -H 'Content-Type: application/json' -d '{"hello":"world"}'
-  ```
+To run both the backend API and the Next.js frontend together:
+
+1. **Run the API locally:**
+Start docker service.
+   ```bash
+   sam local start-api -t template-sam.yaml
+   ```
+
+2. **Start the frontend (in a new terminal):**
+   ```bash
+   cd frontend
+   npm install   # Only needed the first time
+   npm run dev
+   ```
+
+  - The frontend will be at [http://localhost:3000](http://localhost:3000)
+  - The backend API runs at [http://localhost:3000/meta_webhook](http://localhost:3000/meta_webhook) by default
+
+You can then access the frontend normally in a browser. Any API calls from the frontend should use the local API address or be proxied.
+
+#### Example: Test the local API
+```bash
+curl -X POST http://127.0.0.1:3000/meta_webhook -H 'Content-Type: application/json' -d '{"hello":"world"}'
+```
 
 ### Deployment
 
@@ -91,9 +108,6 @@ bash test/test_preprod.sh
 bash test/test_prod.sh
 ```
 
-### Repository Structure
-
-```
 lambdas/metaWebhookHandler.js       # Webhook handler Lambda
 lambdas/imageProcessingWorker.js    # Image processing worker Lambda
 lambdas/textProcessingWorker.js     # Text processing worker Lambda
@@ -101,6 +115,18 @@ scripts/                            # Helper deployment scripts
 template.yaml                       # AWS SAM CloudFormation template
 context.md                          # Business and architecture context
 README.md                           # Technical guide (you are here)
+
+### Repository Structure
+
+```
+lambdas/         # Lambda functions for backend/API
+frontend/        # Next.js frontend for admin/receipts dashboard
+scripts/         # Deployment and utility scripts
+test/            # Integration and API test scripts
+layers/          # Lambda layer code
+template.yaml    # AWS SAM CloudFormation template
+context.md       # Business and architecture context
+README.md        # Technical guide (you are here)
 ```
 
 ## CI/CD
