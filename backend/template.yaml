@@ -47,10 +47,10 @@ Resources:
         - profile
       AllowedOAuthFlowsUserPoolClient: true
       CallbackURLs:
-        - http://localhost:3000/api/auth/callback/cognito
+        - http://localhost:3001/api/auth/callback/cognito
         - https://receipt-api.ukbennettinnovations.com/api/auth/callback/cognito
       LogoutURLs:
-        - http://localhost:3000/
+        - http://localhost:3001/
         - https://receipt-api.ukbennettinnovations.com/
       SupportedIdentityProviders:
         - COGNITO
