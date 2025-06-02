@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Receipt Intelligence Platform (via WhatsApp)
 
-## Getting Started
+This is the Next.js frontend of the Receipt Checker App. 
 
-First, run the development server:
+## Quickstart Guide
 
+### Prerequisites
+
+
+### Setup
+
+1. **Next.js setup:**
+    ```bash
+    npm install
+    ```
+
+2. (Optional) Install VSCode plugins:
+   ```
+
+### Local Development (Monorepo)
+
+This project uses a true monorepo structure. The backend and frontend have totally separate dependency management and deploy flows. You can run both locally in parallel—ideal for development!
+
+**Start frontend app (in a separate terminal):**
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- The frontend (Next.js) is at [http://localhost:3000](http://localhost:3000)
+- The backend API runs at [http://127.0.0.1:3000/meta_webhook](http://127.0.0.1:3000/meta_webhook) by default (on same port—be sure not to conflict)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+> You may want to configure API requests in your frontend (during local dev) to hit the correct endpoint (use proxy or ENV var).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+#### Example: Test the local API
+```bash
+curl -X POST http://127.0.0.1:3000/meta_webhook -H 'Content-Type: application/json' -d '{"hello":"world"}'
+```
 
-## Learn More
+### Deployment
 
-To learn more about Next.js, take a look at the following resources:
+#### Frontend (Next.js):
+Deploy with your preferred platform (e.g. Vercel, Netlify, or S3+CloudFront for static export). See `frontend/README.md` for details.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Testing
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Repository Structure
 
-## Deploy on Vercel
+## Troubleshooting
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+For full system architecture, philosophy, and RAG strategy, please see root `AGENTS.md`.
