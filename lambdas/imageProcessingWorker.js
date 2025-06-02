@@ -107,11 +107,14 @@ exports.handler = async (event) => {
       );
       const azureSecret = JSON.parse(azureSec.SecretString);
       const ocrEndpoint = azureSecret.ocr_endpoint;
-      const ocrKey = azureSecret.ocr_key;
       if (ocrEndpoint !== 'https://receipt-organizer.cognitiveservices.azure.com')
         console.warn('⚠️ Warning: ocrEndpoint does not match the expected value.');
+      const ocrKey = azureSecret.ocr_key;
       if (!ocrKey || typeof ocrKey !== 'string' || !ocrKey.startsWith('1EC'))
         console.warn('⚠️ Warning: ocrKey does not start with the expected prefix "1EC".');
+      const visionEndpoint = azureSecret.vision_endpoint;
+      if (visionEndpoint !== 'https://receipt-classifier.cognitiveservices.azure.com')
+        console.warn('⚠️ Warning: visionEndpoint does not match the expected value.');
 
       // Step 2c: Get media download URL from WhatsApp Graph API
       const graphUrl = `https://graph.facebook.com/v17.0/${imageId}?fields=url`;
@@ -134,10 +137,10 @@ exports.handler = async (event) => {
       if (!mediaResp.ok) throw new Error(`Failed to download media: ${mediaResp.statusText}`);
       const imageBuffer = await mediaResp.arrayBuffer();
 
-      // Step 2d.2: Classify image using Azure Computer Vision (optional pre-filter)
+      // Step 2d.1: Classify image using Azure Computer Vision (optional pre-filter)
       try {
         console.log('Sending image to Azure Computer Vision for classification...');
-        const visionResp = await fetch(`${ocrEndpoint.replace('formrecognizer', 'computervision')}/analyze?visualFeatures=Categories,Tags&language=en`, {
+        const visionResp = await fetch(`${visionEndpoint}/vision/v3.2/analyze?visualFeatures=Categories,Tags`, {
           method: 'POST',
           headers: {
             'Ocp-Apim-Subscription-Key': ocrKey,
@@ -179,7 +182,7 @@ exports.handler = async (event) => {
         console.error('Error during image classification', visionErr);
       }
 
-      // Step 2d.1: Check for duplicate image via ImagesTable
+      // Step 2d.2: Check for duplicate image via ImagesTable
       try {
         const hash = crypto.createHash('sha256').update(Buffer.from(imageBuffer)).digest('hex');
         const dupResp = await ddbClient.send(new GetItemCommand({

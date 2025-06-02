@@ -389,8 +389,8 @@ Resources:
     Type: AWS::SecretsManager::Secret
     Properties:
       Name: AzureSecrets
-      Description: "Stores the Azure OCR endpoint and subscription key"
-      SecretString: '{"ocr_endpoint":"https://xxx.cognitiveservices.azure.com","ocr_key":"abc123secret"}'
+      Description: "Stores the Azure OCR and Vision endpoints and subscription key"
+      SecretString: '{"ocr_endpoint":"https://xxx.cognitiveservices.azure.com","ocr_key":"abc123secret","vision_endpoint":"https://xxx.cognitiveservices.vision.azure.com"}'
       Tags:
         - Key: App
           Value: ReceiptChecker
