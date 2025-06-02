@@ -46,7 +46,15 @@ const ddbClient = new DynamoDBClient();
 // SQS client for heartbeat messages
 const sqsClient = new SQSClient();
 // Error handler layer
-const { handleError } = require('errorHandler');
+const IS_LOCAL = process.env.AWS_SAM_LOCAL === 'true';
+let handleError;
+if (!IS_LOCAL) {
+  try {
+    ({ handleError } = require('errorHandler'));
+  } catch (e) {
+    console.warn('Layer errorHandler not available locally.');
+  }
+}
 
 exports.handler = async (event) => {
   for (const record of event.Records) {
@@ -419,7 +427,9 @@ exports.handler = async (event) => {
 
     } catch (err) {
       console.error("❌ Failed to process SQS record", err);
-      await handleError(err, { waId, phoneNumberId, accessToken });
+      if (handleError) {
+        await handleError(err, { waId, phoneNumberId, accessToken });
+      }
     }
   }
 };

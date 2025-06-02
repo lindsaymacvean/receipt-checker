@@ -5,7 +5,15 @@ const sqsClient = new SQSClient();
 // Secrets Manager client for retrieving WhatsApp token
 const secretsClient = new SecretsManagerClient();
 // Error handler layer
-const { handleError } = require('errorHandler');
+const IS_LOCAL = process.env.AWS_SAM_LOCAL === 'true';
+let handleError;
+if (!IS_LOCAL) {
+  try {
+    ({ handleError } = require('errorHandler'));
+  } catch (e) {
+    console.warn('Layer errorHandler not available locally.');
+  }
+}
 
 // SQS queue URLs for image and text processing
 const IMAGE_QUEUE_URL = process.env.IMAGE_PROCESSING_QUEUE_URL;
@@ -145,7 +153,9 @@ exports.handler = async (event) => {
     }
   } catch (err) {
     console.error('Error checking/creating user in UsersTable:', err);
-    await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
+    if (handleError) {
+      await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
+    }
   }
 
   // Determine which queue to use based on message content (supports Messenger and WhatsApp)
@@ -193,7 +203,9 @@ exports.handler = async (event) => {
     }
   } catch (err) {
     console.error('Error determining queue URL, defaulting to text queue:', err);
-    await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
+    if (handleError) {
+      await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
+    }
     queueUrl = TEXT_QUEUE_URL;
   }
   console.log(`Selected SQS queue URL: ${queueUrl}`);
@@ -208,7 +220,9 @@ exports.handler = async (event) => {
     console.log('Message sent to SQS');
   } catch (err) {
     console.error('Failed to send to SQS:', err);
-    await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
+    if (handleError) {
+      await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
+    }
     return {
       statusCode: 500,
       headers: { 'Access-Control-Allow-Origin': '*' },

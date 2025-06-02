@@ -39,7 +39,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: MetaWebhookPostHandler
-      Handler: metaWebhookHandler.handler
+      Handler: metaWebhookPostHandler.handler
       CodeUri: lambdas/
       Events:
         PostWebhook:

@@ -1,11 +1,9 @@
 # Receipt Intelligence Platform (via WhatsApp)
-
 This is the backend API for the Receipt Intelligence Platform. It is a AWS SAM application that uses AWS Lambda and AWS API Gateway to process WhatsApp messages and extract structured data from receipts.
 
 ## Quickstart Guide
 
 ### Prerequisites
-
 - AWS CLI configured with credentials and region
 - AWS SAM CLI for local builds and deployment
 - Python 3 for pre-commit hooks
@@ -17,9 +15,11 @@ This is the backend API for the Receipt Intelligence Platform. It is a AWS SAM a
 
 1. **Backend AWS/SAM setup:**
     ```bash
-    cd backend
     pip install cfn-lint pre-commit
     pre-commit install
+    cd lambdas
+    npm install
+    cd ..
     ```
 
 2. (Optional) Install VSCode plugins:

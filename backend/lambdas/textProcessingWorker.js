@@ -8,7 +8,15 @@ const secretsClient = new SecretsManagerClient();
 const { DynamoDBClient, QueryCommand, GetItemCommand, UpdateItemCommand } = require('@aws-sdk/client-dynamodb');
 const ddbClient = new DynamoDBClient();
 // Shared error handler from Lambda layer
-const { handleError } = require('errorHandler');
+const IS_LOCAL = process.env.AWS_SAM_LOCAL === 'true';
+let handleError;
+if (!IS_LOCAL) {
+  try {
+    ({ handleError } = require('errorHandler'));
+  } catch (e) {
+    console.warn('Layer errorHandler not available locally.');
+  }
+}
 // Centralized OpenAI prompt templates
 const prompts = require('./utils/prompts');
 
@@ -266,7 +274,9 @@ exports.handler = async (event) => {
         } catch (err) {
           console.error('❌ Error generating final response', err);
           // Notify user of the error via WhatsApp with a unique error ID
-          await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
+          if (handleError) {
+            await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
+          }
           continue;
         }
 
@@ -320,7 +330,9 @@ exports.handler = async (event) => {
     } catch (err) {
       console.error("❌ Failed to parse or process message", err);
       // Notify user of the error via WhatsApp with a unique error ID
-      await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
+      if (handleError) {
+        await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
+      }
     }
   }
 };

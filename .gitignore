@@ -1,1 +1,3 @@
 .aws-sam/
+frontend/.env.local
+backend/lambdas/node_modules
