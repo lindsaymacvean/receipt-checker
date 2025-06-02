@@ -1,3 +1,5 @@
+IF YOU DO NOT HAVE ENOUGH INFORMATION TO COMPLETE THE TASK PLEASE DO NOT ATTEMPT THE TASK, INSTEAD ASK THE USER FOR THE INFORMATION THAT MIGHT HELP TO COMPLETE THE TASK.
+
 # 📘 Project Context: Receipt Intelligence via WhatsApp
 
 This file provides high-level context for the architecture and business purpose of this project. It is designed to guide AI tooling and new developers in understanding what the system is for, how it is structured, and how its parts relate.
