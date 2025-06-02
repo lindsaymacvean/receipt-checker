@@ -76,7 +76,8 @@ sam deploy \
   --profile "$PROFILE" \
   --no-confirm-changeset \
   --no-fail-on-empty-changeset \
-  --parameter-overrides $PARAM_OVERRIDES
+  --parameter-overrides $PARAM_OVERRIDES \
+  --debug
 
 echo "Deployment of stack '$STACK_NAME' complete."
 
@@ -112,3 +113,5 @@ if [ "$CREATE_CUSTOM_DOMAIN" == "true" ]; then
   #   CertificateArn=$CERTIFICATE_ARN
   # echo "Custom domain deployment complete."
 fi
+
+osascript -e 'display notification "Check your deploy!" with title "Deployment Complete"'

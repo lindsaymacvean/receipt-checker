@@ -20,6 +20,48 @@ Globals:
     MemorySize: 128
 
 Resources:
+  MyUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "ReceiptCheckerUserPool-${AWS::StackName}"
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireNumbers: true
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+  MyUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: ReceiptCheckerFrontendClient
+      UserPoolId: !Ref MyUserPool
+      GenerateSecret: false
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - profile
+      AllowedOAuthFlowsUserPoolClient: true
+      CallbackURLs:
+        - http://localhost:3000/api/auth/callback/cognito
+        - https://receipt-api.ukbennettinnovations.com/api/auth/callback/cognito
+      LogoutURLs:
+        - http://localhost:3000/
+        - https://receipt-api.ukbennettinnovations.com/
+      SupportedIdentityProviders:
+        - COGNITO
+  MyUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub "receiptchecker-auth-${AWS::Region}"
+      UserPoolId: !Ref MyUserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
   MetaWebhookApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -449,3 +491,9 @@ Outputs:
   MetaWebhookApiId:
     Description: ID of the MetaWebhookApi
     Value: !Ref MetaWebhookApi
+  CognitoUserPoolId:
+    Value: !Ref MyUserPool
+  CognitoUserPoolClientId:
+    Value: !Ref MyUserPoolClient
+  CognitoDomain:
+    Value: !Sub "https://receipts-app-web-user-pool-${AWS::StackName}.auth.${AWS::Region}.amazoncognito.com"
