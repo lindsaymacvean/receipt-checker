@@ -1,6 +1,10 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../../store/store";
+import { fetchReceipts } from "../../store/receiptSlice";
 
 
 type Receipt = {
@@ -14,9 +18,12 @@ const HIDE_FIELDS = ["rawJson", "merchantInfo", "createdAt"];
 
 export default function Dashboard() {
   const [loggedIn, setLoggedIn] = useState(false);
-  const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const receipts = useSelector((state: RootState) => state.receipts.items) as Receipt[];
+  const loading = useSelector((state: RootState) => state.receipts.loading);
   const [error, setError] = useState<string | null>(null);
+  const dispatch = useDispatch();
   const router = useRouter();
+
 
   useEffect(() => {
     const accessToken = localStorage.getItem("cognito_access_token");
@@ -24,28 +31,15 @@ export default function Dashboard() {
       router.replace("/");
     } else {
       setLoggedIn(true);
-      // Fetch receipts (if not already done)
-      fetchReceipts(accessToken);
+      dispatch<any>(fetchReceipts());
+      // Set up polling
+      const interval = setInterval(() => {
+        dispatch<any>(fetchReceipts());
+      }, 10000);
+      return () => clearInterval(interval);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
-
-  const fetchReceipts = async (accessToken: string) => {
-    try {
-      setError(null);
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-      const res = await fetch(`${apiBase}/receipts`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-      if (!res.ok) throw new Error(`API error: ${res.status}`);
-      const items = await res.json();
-      setReceipts(items);
-    } catch (e: any) {
-      setError(e.message || "Unknown error");
-    }
-  };
+  }, [router, dispatch]);
 
   const handleLogout = () => {
     localStorage.removeItem("cognito_id_token");
@@ -64,6 +58,8 @@ export default function Dashboard() {
         <h2>Your Receipts</h2>
         {error ? (
           <div style={{color:'red'}}>Error: {error}</div>
+        ) : loading ? (
+          <div>Loading receipts...</div>
         ) : receipts.length > 0 ? (
           <table style={{ margin: "20px auto", borderCollapse: "collapse", maxWidth: 700, minWidth: 340 }}>
             <thead>
