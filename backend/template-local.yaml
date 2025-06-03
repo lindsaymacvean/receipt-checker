@@ -72,7 +72,7 @@ Resources:
         AllowMethods: "'OPTIONS,GET,POST'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
       Auth:
-        DefaultAuthorizer: CognitoAuthorizer
+        DefaultAuthorizer: None
         Authorizers:
           CognitoAuthorizer:
             UserPoolArn: !GetAtt MyUserPool.Arn
@@ -105,7 +105,7 @@ Resources:
             Method: GET
             RestApiId: !Ref MetaWebhookApi
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: None
 
   MetaWebhookGetHandler:
     Type: AWS::Serverless::Function

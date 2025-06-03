@@ -62,6 +62,15 @@ This is a serverless, event-driven application hosted on AWS.
 - `backend/lambdas/metaWebhookGetHandler.js`: handles the GET subscription verification handshake
 - `backend/lambdas/metaWebhookHandler.js`: handles incoming POST webhooks and logs payloads
 
+### SAM Templates (local/prod split)
+
+This monorepo often uses the pattern of maintaining both a
+
+- `backend/template.yaml`: Production/prod-ready, with full security (Cognito authorizers, etc.)
+- `backend/template-sam.yaml`: Local-only, relaxed (auth/triggers/off), for fast `sam local start-api`
+
+This allows fast Lambda API dev and iteration without full security blocking local runs/testing. **Do not edit out auth from `template.yaml`—instead, modify only `template-sam.yaml` while developing locally.** Push/deploy only the secure template.
+
 ### Infrastructure
 - `backend/template.yaml`:  
   AWS SAM template defining:

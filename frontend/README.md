@@ -12,6 +12,7 @@ This is the Next.js frontend of the Receipt Checker App.
 1. **Next.js setup:**
     ```bash
     npm install
+    cp .env.local.example .env.local
     ```
 
 2. (Optional) Install VSCode plugins:

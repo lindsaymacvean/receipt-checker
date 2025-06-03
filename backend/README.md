@@ -36,7 +36,7 @@ This is the backend API for the Receipt Intelligence Platform. It is a AWS SAM a
 
 **Start API locally:**
 ```bash
-sam local start-api -t template-sam.yaml
+sam local start-api -t template-local.yaml
 ```
 
 - The backend API runs at [http://127.0.0.1:3000/meta_webhook](http://127.0.0.1:3000/meta_webhook) by default (on same port—be sure not to conflict)
@@ -45,6 +45,9 @@ sam local start-api -t template-sam.yaml
 ```bash
 curl -X POST http://127.0.0.1:3000/meta_webhook -H 'Content-Type: application/json' -d '{"hello":"world"}'
 ```
+
+### Development
+
 
 ### Deployment
 #### Backend (AWS/SAM):
