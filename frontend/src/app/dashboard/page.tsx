@@ -2,11 +2,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+
 type Receipt = {
   pk: string;
   sk: string;
   [key: string]: any;
 };
+
+// Fields to hide from the dashboard table
+const HIDE_FIELDS = ["rawJson", "merchantInfo", "createdAt"];
 
 export default function Dashboard() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -64,17 +68,21 @@ export default function Dashboard() {
           <table style={{ margin: "20px auto", borderCollapse: "collapse", maxWidth: 700, minWidth: 340 }}>
             <thead>
               <tr>
-                {Object.keys(receipts[0]).map((col) => (
-                  <th key={col} style={{ border: "1px solid #ccc", padding: 8 }}>{col}</th>
-                ))}
+                {Object.keys(receipts[0])
+                  .filter((col) => !HIDE_FIELDS.includes(col))
+                  .map((col) => (
+                    <th key={col} style={{ border: "1px solid #ccc", padding: 8 }}>{col}</th>
+                  ))}
               </tr>
             </thead>
             <tbody>
               {receipts.map((r, i) => (
                 <tr key={i}>
-                  {Object.values(r).map((val, j) => (
-                    <td key={j} style={{ border: "1px solid #ccc", padding: 7 }}>{val?.toString()}</td>
-                  ))}
+                  {Object.entries(r)
+                    .filter(([col]) => !HIDE_FIELDS.includes(col))
+                    .map(([col, val], j) => (
+                      <td key={j} style={{ border: "1px solid #ccc", padding: 7 }}>{val?.toString()}</td>
+                    ))}
                 </tr>
               ))}
             </tbody>
