@@ -14,28 +14,66 @@ This is the backend API for the Receipt Intelligence Platform. It is a AWS SAM a
 ### Setup
 
 1. **Backend AWS/SAM setup:**
-    ```bash
-    pip install cfn-lint pre-commit
-    pre-commit install
-    cd lambdas
-    npm install
-    cd ..
-    ```
+  ```bash
+  pip install cfn-lint pre-commit
+  pre-commit install
+  cd lambdas
+  npm install
+  cd ..
+  ```
 
 2. (Optional) Install VSCode plugins:
    - CloudFormation Linter (kddejong)
    - AWS Toolkit
 
 3. Populate Secrets Manager with required secrets:
-   ```bash
-   aws secretsmanager put-secret-value --secret-id MetaSecrets --secret-string '{"access_token":"YOUR_TOKEN"}'
-   aws secretsmanager put-secret-value --secret-id AzureSecrets --secret-string '{"ocr_endpoint":"https://your-endpoint", "ocr_key":"your-key"}'
-   aws secretsmanager put-secret-value --secret-id OpenAISecrets --secret-string '{"openai_api_key":"your-openai-key"}'
-   aws secretsmanager put-secret-value --secret-id BraveSecrets --secret-string '{"brave_api_key":"your-brave-api-key"}'
-   ```
+  ```bash
+  aws secretsmanager put-secret-value --secret-id MetaSecrets --secret-string '{"access_token":"YOUR_TOKEN"}'
+  aws secretsmanager put-secret-value --secret-id AzureSecrets --secret-string '{"ocr_endpoint":"https://your-endpoint", "ocr_key":"your-key"}'
+  aws secretsmanager put-secret-value --secret-id OpenAISecrets --secret-string '{"openai_api_key":"your-openai-key"}'
+  aws secretsmanager put-secret-value --secret-id BraveSecrets --secret-string '{"brave_api_key":"your-brave-api-key"}'
+  ```
+
+4. After editing template.yaml, always sync your template for local dev: 
+```bash
+./scripts/sync-templates.sh
+```
+This disables API authorizers and injects the correct DYNAMODB_ENDPOINT 
+for local Lambda <-> DynamoDB connectivity.
+
+## Local DynamoDB for Dev
+
+    To enable true local Lambda and API testing with real data:
+
+1. Start DynamoDB Local:
+```bash
+docker run -d -p 8000:8000 amazon/dynamodb-local
+```
+2. Create Dynamo tables in your local dynamodb instance:
+```bash
+aws dynamodb create-table \
+  --endpoint-url http://localhost:8000 \
+  --table-name ReceiptsTable \
+  --attribute-definitions AttributeName=pk,AttributeType=S AttributeName=sk,AttributeType=S \
+  --key-schema AttributeName=pk,KeyType=HASH AttributeName=sk,KeyType=RANGE \
+  --billing-mode PAY_PER_REQUEST
+```
+(Repeat for any other tables.)
+
+3. Add dummy data
+```bash
+aws dynamodb put-item \
+  --table-name ReceiptsTable \
+  --item file://scripts/item.json \
+  --endpoint-url http://localhost:8000
+```
 
 **Start API locally:**
+you need aws-sdk locally not for deployed package
 ```bash
+cd lambdas
+npm install aws-sdk
+cd ..
 sam local start-api -t template-local.yaml
 ```
 
@@ -45,9 +83,6 @@ sam local start-api -t template-local.yaml
 ```bash
 curl -X POST http://127.0.0.1:3000/meta_webhook -H 'Content-Type: application/json' -d '{"hello":"world"}'
 ```
-
-### Development
-
 
 ### Deployment
 #### Backend (AWS/SAM):

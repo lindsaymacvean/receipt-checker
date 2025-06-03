@@ -72,7 +72,7 @@ Resources:
         AllowMethods: "'OPTIONS,GET,POST'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
       Auth:
-        DefaultAuthorizer: None
+        DefaultAuthorizer: CognitoAuthorizer
         Authorizers:
           CognitoAuthorizer:
             UserPoolArn: !GetAtt MyUserPool.Arn
@@ -90,6 +90,7 @@ Resources:
       Environment:
         Variables:
           RECEIPTS_TABLE_NAME: !Ref ReceiptsTable
+          DYNAMODB_ENDPOINT: http://host.docker.internal:8000
       Policies:
         - AWSLambdaBasicExecutionRole
         - Statement:
@@ -104,8 +105,6 @@ Resources:
             Path: /receipts
             Method: GET
             RestApiId: !Ref MetaWebhookApi
-            Auth:
-              Authorizer: None
 
   MetaWebhookGetHandler:
     Type: AWS::Serverless::Function

@@ -94,23 +94,17 @@ This allows fast Lambda API dev and iteration without full security blocking loc
 - Supports both `/preprod/meta_webhook` and `/prod/meta_webhook` paths via the `StageName` parameter
 - Certificates managed via ACM and Lightsail DNS
 
----
+## Local Development: template-local.yaml and DynamoDB Local
 
-## 🧩 Next Planned Features
-1. **metaWebhookPostHandler.js**
-    * Secure the webhook (e.g., with TLS client cert or validation certificate)
-    * Enforce credit checks:
-          • If a user exists, verify they have enough credits
-          • If new and no credits, prompt signup
-          • If existing and out of credits, prompt recharge
-2. **imageProcessingWorker.js**
-    * Backup receipt images to S3
-    * Convert amounts to the user’s currency (currency conversion)
-    * Handle low‐confidence OCR results (alert user for manual review)
-    * Detect likely duplicates via Bayesian logic, notify the user
-    * Update the `ImagesTable` with receipt reference (pk/sk & status)
-    * Populate a summary table (daily/weekly/monthly spend by vendor/category)
-    * Deduct credits per receipt processed
+    - Production infra is always described in backend/template.yaml and deployed to AWS.
+    - For local work, run backend/scripts/sync-templates.sh after each backend template edit to
+regenerate backend/template-local.yaml.
+      - This disables Cognito authorizers, making all endpoints open for rapid local use.
+      - The script also auto-injects DYNAMODB_ENDPOINT for any Lambda using RECEIPTS_TABLE_NAME, 
+so your code talks to DynamoDB Local instead of AWS.
+    - Use `docker run -d -p 8000:8000 amazon/dynamodb-local` to start DynamoDB Local.
+    - Always create test tables manually in DynamoDB Local as per template-local.yaml.
+    - All Lambdas use `DYNAMODB_ENDPOINT` to communicate with DynamoDB Local during local dev.
 
 ---
 
