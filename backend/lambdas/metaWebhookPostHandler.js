@@ -1,238 +1,120 @@
-const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
-const { DynamoDBClient, GetItemCommand, PutItemCommand } = require('@aws-sdk/client-dynamodb');
+// Slim WhatsApp → azure → WhatsApp proxy
+// Receives WhatsApp text via Meta webhook, forwards to Azure Function,
+// then sends the reply back to the WhatsApp sender.
+
 const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
-const sqsClient = new SQSClient();
-// Secrets Manager client for retrieving WhatsApp token
 const secretsClient = new SecretsManagerClient();
-// Error handler layer
-const IS_LOCAL = process.env.AWS_SAM_LOCAL === 'true';
-let handleError;
-if (!IS_LOCAL) {
-  try {
-    ({ handleError } = require('errorHandler'));
-  } catch (e) {
-    console.warn('Layer errorHandler not available locally.');
-  }
+
+const META_GRAPH_VERSION = process.env.META_GRAPH_VERSION || 'v17.0';
+const AZURE_FUNCTION_URL = process.env.AZURE_FUNCTION_URL; // e.g. https://<app>.azurewebsites.net/api/chat
+const AZURE_FUNCTION_API_KEY = process.env.AZURE_FUNCTION_API_KEY; // optional
+const META_ACCESS_TOKEN_ENV = process.env.META_ACCESS_TOKEN; // optional; fallback to Secrets Manager if absent
+const META_SECRET_ID = process.env.META_SECRET_ID;           // if using Secrets Manager for token
+
+async function getMetaAccessToken() {
+  if (META_ACCESS_TOKEN_ENV) return META_ACCESS_TOKEN_ENV;
+  if (!META_SECRET_ID) throw new Error('META_ACCESS_TOKEN not set and META_SECRET_ID missing');
+  const sec = await secretsClient.send(new GetSecretValueCommand({ SecretId: META_SECRET_ID }));
+  const metaSecret = JSON.parse(sec.SecretString || '{}');
+  if (!metaSecret.access_token) throw new Error('META secret missing access_token');
+  return metaSecret.access_token;
 }
 
-// SQS queue URLs for image and text processing
-const IMAGE_QUEUE_URL = process.env.IMAGE_PROCESSING_QUEUE_URL;
-const TEXT_QUEUE_URL = process.env.TEXT_PROCESSING_QUEUE_URL;
-// DynamoDB client for user lookup
-const ddbClient = new DynamoDBClient();
-// Mapping of country calling codes to currency codes
-const countryCurrencyMap = {
-  '353': 'EUR',
-  '44': 'GBP'
-};
+function extractWhatsAppBits(body) {
+  const entry0 = body.entry?.[0];
+  const change0 = entry0?.changes?.[0];
+  const value = change0?.value || {};
+  const messages = value.messages || [];
+  const msg = messages[0] || {};
+  const waId = value.contacts?.[0]?.wa_id;
+  const phoneNumberId = value.metadata?.phone_number_id;
+
+  const isText = msg.type === 'text' || (msg.text && (typeof msg.text === 'string' || typeof msg.text?.body === 'string'));
+  const userText = isText ? (typeof msg.text === 'string' ? msg.text : (msg.text?.body || '')) : '';
+
+  return { waId, phoneNumberId, userText, isText };
+}
+
+async function sendWhatsAppText({ phoneNumberId, to, text, accessToken }) {
+  if (!phoneNumberId) throw new Error('Missing phoneNumberId');
+  const url = `https://graph.facebook.com/${META_GRAPH_VERSION}/${phoneNumberId}/messages`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      text: { body: text }
+    })
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    throw new Error(`WhatsApp send failed: ${resp.status} ${resp.statusText} ${JSON.stringify(data)}`);
+  }
+  return data;
+}
+
+async function callFunction({ userMessage, waId }) {
+  if (!AZURE_FUNCTION_URL) throw new Error('AZURE_FUNCTION_URL not configured');
+  const headers = { 'Content-Type': 'application/json' };
+  if (AZURE_FUNCTION_API_KEY) headers['Authorization'] = `Bearer ${AZURE_FUNCTION_API_KEY}`;
+  const resp = await fetch(AZURE_FUNCTION_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ user_message: userMessage, waId })
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    throw new Error(`Function error: ${resp.status} ${resp.statusText} ${JSON.stringify(data)}`);
+  }
+  // Normalise possible shapes
+  const replyText = JSON.stringify(data).ai_response_chunk;
+  return replyText;
+}
 
 exports.handler = async (event) => {
-  // TODO: secure the webhook with a certificate
-  // Context for error handling
-  let body;
-  let waId;
-  let phoneNumberId;
-  let metaAccessToken;
   try {
-    body = JSON.parse(event.body);
-    console.log('Parsed body:', JSON.stringify(body, null, 2));
-    // Extract WhatsApp identifiers
-    const entry0 = body.entry?.[0];
-    const changesArr = entry0?.changes;
-    if (Array.isArray(changesArr) && changesArr.length > 0) {
-      waId = changesArr[0].value?.contacts?.[0]?.wa_id;
-      phoneNumberId = changesArr[0].value?.metadata?.phone_number_id;
+    const body = JSON.parse(event.body || '{}');
+    console.log('Incoming webhook:', JSON.stringify(body, null, 2));
+
+    const { waId, phoneNumberId, userText, isText } = extractWhatsAppBits(body);
+    if (!waId || !phoneNumberId) {
+      console.warn('Missing waId or phoneNumberId — ignoring');
+      return { statusCode: 200, headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Ignored (no waId/phoneNumberId)' }) };
     }
-    // Retrieve Meta access token for error notifications
+
+    if (!isText || !userText) {
+      console.log('Non-text or empty message — ignoring');
+      return { statusCode: 200, headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Ignored (non-text/empty)' }) };
+    }
+
+    // 1) Call Azure Function with the user text
+    let reply;
     try {
-      const sec = await secretsClient.send(new GetSecretValueCommand({ SecretId: process.env.META_SECRET_ID }));
-      const metaSecret = JSON.parse(sec.SecretString);
-      metaAccessToken = metaSecret.access_token;
+      reply = await callFunction({ userMessage: userText, waId });
     } catch (e) {
-      console.error('Error retrieving META_SECRET for error handler', e);
+      console.error('call failed:', e);
+      reply = 'Sorry — my help service is unavailable right now. Please try again shortly.';
     }
-  } catch (err) {
-    console.error('Failed to parse JSON:', err);
+
+    // 2) Send reply back to WhatsApp
+    const accessToken = await getMetaAccessToken();
+    await sendWhatsAppText({ phoneNumberId, to: waId, text: reply, accessToken });
+
     return {
-      statusCode: 400,
+      statusCode: 200,
       headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ error: 'Invalid JSON' })
+      body: JSON.stringify({ message: 'Reply sent' })
     };
-  }
-  // Check if this is a WhatsApp message and new user
-  try {
-    const changes = body.entry?.[0]?.changes;
-    if (Array.isArray(changes) && changes.length > 0) {
-      const waId = changes[0].value?.contacts?.[0]?.wa_id;
-      if (waId) {
-        // Use composite key: pk=waId, sk=waId (phone number as sort key)
-        const userKey = { pk: { S: waId } };
-        const getResp = await ddbClient.send(new GetItemCommand({
-          TableName: 'UsersTable',
-          Key: userKey
-        }));
-        if (!getResp.Item) {
-          // Save phone number and infer currency
-          const phoneNumber = waId;
-          let currency = 'USD';
-          for (const code in countryCurrencyMap) {
-            if (phoneNumber.startsWith(code)) {
-              currency = countryCurrencyMap[code];
-              break;
-            }
-          }
-          const newUser = {
-            ...userKey,
-            phoneNumber: { S: phoneNumber },
-            currency: { S: currency },
-            status: { S: 'freetrial' },
-            credits: { N: '100' },
-            createdAt: { S: new Date().toISOString() }
-          };
-          await ddbClient.send(new PutItemCommand({
-            TableName: 'UsersTable',
-            Item: newUser
-          }));
-          console.log(`New user created: ${waId}`);
-
-          // Send welcome message to the new WhatsApp user
-          const phoneNumberId = changes[0].value?.metadata?.phone_number_id;
-          if (phoneNumberId) {
-            try {
-              const accessToken = metaAccessToken;
-              // Customize welcome text based on incoming message type
-              const incomingMessages = changes[0].value?.messages || [];
-              const isImageMessage = incomingMessages.some(m => m.type === 'image' || m.image);
-              let welcomeText;
-              if (isImageMessage) {
-                welcomeText = `Thanks for the image! I\'ve queued it to be added to your database of spending. 
-                 Feel free to send me another one or ask me a question about your spending.`;
-              } else {
-                welcomeText = 'Welcome to ReceiptChecker! Ok lets get started. Try sending us a photo of a receipt.';
-              }
-              const whatsappUrl = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
-              const sendResp = await fetch(whatsappUrl, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${accessToken}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  messaging_product: 'whatsapp',
-                  to: waId,
-                  text: { body: welcomeText }
-                })
-              });
-              const sendData = await sendResp.json();
-              console.log('✅ Welcome message sent:', JSON.stringify(sendData, null, 2));
-              if (!isImageMessage) {
-                // If no image then nothing else to do
-                console.log('New user and no image message, so exiting early');
-                return {
-                  statusCode: 200,
-                  headers: { 'Access-Control-Allow-Origin': '*' },
-                  body: JSON.stringify({ message: 'Welcome message sent. Awaiting receipt image.' })
-                };
-              }
-            } catch (err) {
-              console.error('❌ Error sending welcome message', err);
-            }
-          } else {
-            console.warn('No phone_number_id found, cannot send welcome message');
-          }
-        } else {
-          console.log(`This is an existing user: ${waId}`);
-        }
-
-        // TODO: if user exists check has enough credits
-        // TODO: if not enough credits and new, send a message to the user to sign up
-        // TODO: if not enough credits and existing, send a message to the user to top up
-
-      }
-
-    }
   } catch (err) {
-    console.error('Error checking/creating user in UsersTable:', err);
-    if (handleError) {
-      await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
-    }
-  }
-
-  // Determine which queue to use based on message content (supports Messenger and WhatsApp)
-  let queueUrl;
-  try {
-    // Collect message objects from possible event shapes
-    let messages = [];
-    // Facebook Messenger format
-    const messengerEvents = body.entry?.[0]?.messaging;
-    if (Array.isArray(messengerEvents) && messengerEvents.length > 0) {
-      messages = messengerEvents.map(evt => evt.message).filter(m => m);
-    }
-    // WhatsApp Business format
-    if (messages.length === 0) {
-      const changes = body.entry?.[0]?.changes;
-      if (Array.isArray(changes) && changes.length > 0) {
-        messages = changes[0].value?.messages || [];
-      }
-    }
-    // 👉 NEW: If still no messages, exit early
-    if (!messages || messages.length === 0) {
-      console.log('No messages found, skipping processing.');
-      return {
-        statusCode: 200,
-        headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ message: 'No actionable message found, ignored.' })
-      };
-    }
-    // Choose queue based on first message type
-    if (Array.isArray(messages) && messages.length > 0) {
-      const msg = messages[0] || {};
-      // Image message (WhatsApp or Messenger attachments)
-      if (msg.type === 'image' || msg.image || (Array.isArray(msg.attachments) && msg.attachments.some(att => att.type === 'image'))) {
-        queueUrl = IMAGE_QUEUE_URL;
-      // Text message (WhatsApp or Messenger)
-      } else if (msg.type === 'text' || (msg.text && (typeof msg.text === 'string' || typeof msg.text.body === 'string'))) {
-        queueUrl = TEXT_QUEUE_URL;
-      } else {
-        console.warn('Unsupported message type, defaulting to text queue');
-        queueUrl = TEXT_QUEUE_URL;
-      }
-    } else {
-      console.warn('No messaging events found, defaulting to text queue');
-      queueUrl = TEXT_QUEUE_URL;
-    }
-  } catch (err) {
-    console.error('Error determining queue URL, defaulting to text queue:', err);
-    if (handleError) {
-      await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
-    }
-    queueUrl = TEXT_QUEUE_URL;
-  }
-  console.log(`Selected SQS queue URL: ${queueUrl}`);
-  // Send message to the selected SQS queue
-  try {
-    await sqsClient.send(
-      new SendMessageCommand({
-        QueueUrl: queueUrl,
-        MessageBody: JSON.stringify(body)
-      })
-    );
-    console.log('Message sent to SQS');
-  } catch (err) {
-    console.error('Failed to send to SQS:', err);
-    if (handleError) {
-      await handleError(err, { waId, phoneNumberId, accessToken: metaAccessToken });
-    }
+    console.error('Webhook handler error:', err);
     return {
       statusCode: 500,
       headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ error: 'Failed to enqueue message' })
+      body: JSON.stringify({ error: 'Internal error' })
     };
   }
-
-  return {
-    statusCode: 200,
-    headers: { 'Access-Control-Allow-Origin': '*' },
-    body: JSON.stringify({ message: 'Queued for processing' })
-  };
 };
